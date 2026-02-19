@@ -15,6 +15,7 @@ import {
   ChevronDown,
   LogOut,
   HelpCircle,
+  GitPullRequest,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,8 @@ import { Badge } from "@/components/ui/badge";
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Tableau de bord" },
   { to: "/documents", icon: FolderOpen, label: "Documents" },
+  { to: "/search", icon: Search, label: "Recherche" },
+  { to: "/workflow", icon: GitPullRequest, label: "Validation" },
   { to: "/admin", icon: Shield, label: "Administration" },
   { to: "/connectors", icon: Link2, label: "Connecteurs" },
 ];
