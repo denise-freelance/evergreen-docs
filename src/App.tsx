@@ -10,6 +10,7 @@ import Admin from "./pages/Admin";
 import Connectors from "./pages/Connectors";
 import SearchPage from "./pages/Search";
 import Workflow from "./pages/Workflow";
+import Shared from "./pages/Shared";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,6 +24,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Layout><Index /></Layout>} />
           <Route path="/documents" element={<Layout><Documents /></Layout>} />
+          <Route path="/shared" element={<Layout><Shared /></Layout>} />
           <Route path="/admin" element={<Layout><Admin /></Layout>} />
           <Route path="/connectors" element={<Layout><Connectors /></Layout>} />
           <Route path="/search" element={<Layout><SearchPage /></Layout>} />
