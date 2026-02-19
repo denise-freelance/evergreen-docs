@@ -8,6 +8,8 @@ import Index from "./pages/Index";
 import Documents from "./pages/Documents";
 import Admin from "./pages/Admin";
 import Connectors from "./pages/Connectors";
+import SearchPage from "./pages/Search";
+import Workflow from "./pages/Workflow";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,6 +25,8 @@ const App = () => (
           <Route path="/documents" element={<Layout><Documents /></Layout>} />
           <Route path="/admin" element={<Layout><Admin /></Layout>} />
           <Route path="/connectors" element={<Layout><Connectors /></Layout>} />
+          <Route path="/search" element={<Layout><SearchPage /></Layout>} />
+          <Route path="/workflow" element={<Layout><Workflow /></Layout>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
