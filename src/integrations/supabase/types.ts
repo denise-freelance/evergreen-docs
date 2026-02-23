@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: string | null
+          target: string | null
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          target?: string | null
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          target?: string | null
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: []
+      }
       groups: {
         Row: {
           created_at: string
@@ -21,6 +51,7 @@ export type Database = {
           icon: string | null
           id: string
           name: string
+          parent_id: string | null
         }
         Insert: {
           created_at?: string
@@ -28,6 +59,7 @@ export type Database = {
           icon?: string | null
           id?: string
           name: string
+          parent_id?: string | null
         }
         Update: {
           created_at?: string
@@ -35,8 +67,17 @@ export type Database = {
           icon?: string | null
           id?: string
           name?: string
+          parent_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "groups_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -72,6 +113,38 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "profiles_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_group_permissions: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          permission: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          permission: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          permission?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_group_permissions_group_id_fkey"
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "groups"
