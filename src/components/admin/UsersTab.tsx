@@ -11,7 +11,8 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { supabase } from "@/integrations/supabase/client";
+import { usersService } from "@/services/users.service";
+import { groupsService } from "@/services/groups.service";
 import { useToast } from "@/hooks/use-toast";
 import InviteUserDialog from "@/components/InviteUserDialog";
 import EditUserDialog from "@/components/admin/EditUserDialog";
@@ -44,14 +45,12 @@ export default function UsersTab() {
 
   const fetchUsers = async () => {
     setLoading(true);
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("user_id, username, email, is_active, group_id");
-    if (profiles) {
-      const { data: roles } = await supabase.from("user_roles").select("user_id, role");
-      const { data: grps } = await supabase.from("groups").select("id, name");
-      const groupMap = Object.fromEntries((grps ?? []).map((g) => [g.id, g.name]));
-      const roleMap = Object.fromEntries((roles ?? []).map((r) => [r.user_id, r.role]));
+    try {
+      const [profiles, groups] = await Promise.all([
+        usersService.getAll(),
+        groupsService.getAll(),
+      ]);
+      const groupMap = Object.fromEntries(groups.map((g) => [g.id, g.name]));
       setUsers(
         profiles.map((p) => ({
           user_id: p.user_id,
@@ -60,19 +59,25 @@ export default function UsersTab() {
           is_active: p.is_active,
           group_id: p.group_id ?? undefined,
           group_name: p.group_id ? groupMap[p.group_id] ?? "-" : "-",
-          role: roleMap[p.user_id] ?? "reader",
+          role: p.role ?? "reader",
         }))
       );
+    } catch (err: any) {
+      toast({ title: "Erreur", description: err.message, variant: "destructive" });
     }
     setLoading(false);
   };
 
   useEffect(() => { fetchUsers(); }, []);
 
-  const toggleStatus = async (userId: string, current: boolean) => {
-    const { error } = await supabase.from("profiles").update({ is_active: !current }).eq("user_id", userId);
-    if (error) toast({ title: "Erreur", description: error.message, variant: "destructive" });
-    else { toast({ title: "Statut mis à jour" }); fetchUsers(); }
+  const toggleStatus = async (userId: string) => {
+    try {
+      await usersService.toggleStatus(userId);
+      toast({ title: "Statut mis à jour" });
+      fetchUsers();
+    } catch (err: any) {
+      toast({ title: "Erreur", description: err.message, variant: "destructive" });
+    }
   };
 
   const filtered = users.filter((u) =>
@@ -140,7 +145,7 @@ export default function UsersTab() {
                           <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => toggleStatus(user.user_id, user.is_active)}>
+                          <DropdownMenuItem onClick={() => toggleStatus(user.user_id)}>
                             {user.is_active ? <XCircle className="mr-2 h-4 w-4" /> : <CheckCircle className="mr-2 h-4 w-4" />}
                             {user.is_active ? "Désactiver" : "Activer"}
                           </DropdownMenuItem>

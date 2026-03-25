@@ -9,12 +9,12 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
+import { groupsService, Group } from "@/services/groups.service";
+import { usersService } from "@/services/users.service";
+import { permissionsService, Permission } from "@/services/permissions.service";
 import { useToast } from "@/hooks/use-toast";
 
-interface Group { id: string; name: string; }
 interface UserRow { user_id: string; username: string; group_id: string | null; }
-interface PermRow { user_id: string; group_id: string; permission: string; }
 
 const permOptions = ["-", "R", "RU", "CR", "CRU", "CRUD"];
 const permColors: Record<string, string> = {
@@ -38,7 +38,7 @@ const permLabels: Record<string, string> = {
 export default function PermissionsTab() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [users, setUsers] = useState<UserRow[]>([]);
-  const [perms, setPerms] = useState<PermRow[]>([]);
+  const [perms, setPerms] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [changes, setChanges] = useState<Record<string, Record<string, string>>>({});
@@ -46,31 +46,31 @@ export default function PermissionsTab() {
 
   const fetchAll = async () => {
     setLoading(true);
-    const [groupsRes, profilesRes, permsRes] = await Promise.all([
-      supabase.from("groups").select("id, name").order("name"),
-      supabase.from("profiles").select("user_id, username, group_id"),
-      supabase.from("user_group_permissions").select("user_id, group_id, permission"),
-    ]);
-    if (groupsRes.data) setGroups(groupsRes.data);
-    if (profilesRes.data) setUsers(profilesRes.data);
-    if (permsRes.data) setPerms(permsRes.data);
+    try {
+      const [groupsData, profilesData, permsData] = await Promise.all([
+        groupsService.getAll(),
+        usersService.getAll(),
+        permissionsService.getAll(),
+      ]);
+      setGroups(groupsData);
+      setUsers(profilesData.map((p) => ({ user_id: p.user_id, username: p.username, group_id: p.group_id })));
+      setPerms(permsData);
+    } catch (err: any) {
+      toast({ title: "Erreur", description: err.message, variant: "destructive" });
+    }
     setLoading(false);
   };
 
   useEffect(() => { fetchAll(); }, []);
 
   const getPerm = (userId: string, groupId: string, userGroupId: string | null): string => {
-    // Check local changes first
     if (changes[userId]?.[groupId]) return changes[userId][groupId];
-    // Primary group = CRUD by default
     if (userGroupId === groupId) return "CRUD";
-    // Check saved permissions
     const saved = perms.find((p) => p.user_id === userId && p.group_id === groupId);
     return saved?.permission ?? "-";
   };
 
   const handleChange = (userId: string, groupId: string, userGroupId: string | null, value: string) => {
-    // Can't change primary group perm
     if (userGroupId === groupId) return;
     setChanges((prev) => ({
       ...prev,
@@ -81,19 +81,7 @@ export default function PermissionsTab() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      for (const [userId, groupPerms] of Object.entries(changes)) {
-        for (const [groupId, perm] of Object.entries(groupPerms)) {
-          if (perm === "-") {
-            await supabase.from("user_group_permissions").delete().match({ user_id: userId, group_id: groupId });
-          } else {
-            const { error } = await supabase.from("user_group_permissions").upsert(
-              { user_id: userId, group_id: groupId, permission: perm },
-              { onConflict: "user_id,group_id" }
-            );
-            if (error) throw error;
-          }
-        }
-      }
+      await permissionsService.saveAll(changes);
       toast({ title: "Permissions enregistrées" });
       setChanges({});
       fetchAll();

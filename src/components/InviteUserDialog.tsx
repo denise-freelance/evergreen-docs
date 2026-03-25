@@ -1,22 +1,15 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { authService } from "@/services/auth.service";
+import { groupsService } from "@/services/groups.service";
 import { UserPlus, Loader2 } from "lucide-react";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 
@@ -38,9 +31,7 @@ export default function InviteUserDialog({ open, onOpenChange, onSuccess }: Invi
 
   useEffect(() => {
     if (open) {
-      supabase.from("groups").select("id, name").order("name").then(({ data }) => {
-        if (data) setGroups(data);
-      });
+      groupsService.getAll().then((data) => setGroups(data));
     }
   }, [open]);
 
@@ -57,17 +48,11 @@ export default function InviteUserDialog({ open, onOpenChange, onSuccess }: Invi
 
     setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await supabase.functions.invoke("admin-register-user", {
-        body: { email, password, username, role, group_id: groupId },
-      });
-
-      if (response.error) throw new Error(response.error.message);
-      if (response.data?.error) throw new Error(response.data.error);
+      await authService.registerUser({ email, password, username, role, group_id: groupId });
 
       toast({
         title: "Utilisateur créé",
-        description: `${username} recevra un email de confirmation à ${email}.`,
+        description: `${username} a été créé avec succès.`,
       });
 
       setUsername("");
@@ -98,7 +83,7 @@ export default function InviteUserDialog({ open, onOpenChange, onSuccess }: Invi
             <UserPlus className="h-5 w-5 text-accent" /> Inviter un utilisateur
           </DialogTitle>
           <DialogDescription>
-            L'utilisateur recevra un email de confirmation. Son compte sera inactif jusqu'à activation manuelle.
+            Créez un nouvel utilisateur. Son compte sera inactif jusqu'à activation manuelle.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">

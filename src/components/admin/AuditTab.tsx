@@ -9,16 +9,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
-
-interface AuditLog {
-  id: string;
-  user_name: string;
-  action: string;
-  target: string | null;
-  ip_address: string | null;
-  created_at: string;
-}
+import { auditService, AuditLog } from "@/services/audit.service";
 
 const actionColors: Record<string, string> = {
   Consultation: "bg-info/10 text-info",
@@ -40,22 +31,17 @@ export default function AuditTab() {
 
   const fetchLogs = async () => {
     setLoading(true);
-    let query = supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(200);
-
-    if (actionFilter !== "all") {
-      query = query.eq("action", actionFilter);
+    try {
+      const data = await auditService.getLogs({
+        action: actionFilter,
+        date_from: dateFrom,
+        date_to: dateTo,
+        limit: "200",
+      });
+      setLogs(data);
+    } catch {
+      setLogs([]);
     }
-    if (dateFrom) {
-      query = query.gte("created_at", new Date(dateFrom).toISOString());
-    }
-    if (dateTo) {
-      const end = new Date(dateTo);
-      end.setHours(23, 59, 59, 999);
-      query = query.lte("created_at", end.toISOString());
-    }
-
-    const { data } = await query;
-    if (data) setLogs(data as AuditLog[]);
     setLoading(false);
   };
 
