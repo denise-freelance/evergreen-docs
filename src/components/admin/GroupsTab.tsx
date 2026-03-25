@@ -17,17 +17,8 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
+import { groupsService, Group } from "@/services/groups.service";
 import { useToast } from "@/hooks/use-toast";
-
-interface Group {
-  id: string;
-  name: string;
-  icon: string;
-  description: string | null;
-  parent_id: string | null;
-  created_at: string;
-}
 
 export default function GroupsTab() {
   const [groups, setGroups] = useState<Group[]>([]);
@@ -45,8 +36,12 @@ export default function GroupsTab() {
 
   const fetchGroups = async () => {
     setLoading(true);
-    const { data } = await supabase.from("groups").select("*").order("name");
-    if (data) setGroups(data as Group[]);
+    try {
+      const data = await groupsService.getAll();
+      setGroups(data);
+    } catch (err: any) {
+      toast({ title: "Erreur", description: err.message, variant: "destructive" });
+    }
     setLoading(false);
   };
 
@@ -57,56 +52,55 @@ export default function GroupsTab() {
     g.description?.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Build tree structure
   const rootGroups = filtered.filter((g) => !g.parent_id);
   const getChildren = (parentId: string) => groups.filter((g) => g.parent_id === parentId);
 
   const handleCreate = async () => {
     if (!formName.trim()) return;
-    const { error } = await supabase.from("groups").insert({
-      name: formName.trim(),
-      description: formDesc.trim() || null,
-      icon: formIcon,
-      parent_id: formParentId === "none" ? null : formParentId,
-    });
-    if (error) {
-      toast({ title: "Erreur", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      await groupsService.create({
+        name: formName.trim(),
+        description: formDesc.trim() || null,
+        icon: formIcon,
+        parent_id: formParentId === "none" ? null : formParentId,
+      });
       toast({ title: "Groupe créé" });
       resetForm();
       setAddOpen(false);
       fetchGroups();
+    } catch (err: any) {
+      toast({ title: "Erreur", description: err.message, variant: "destructive" });
     }
   };
 
   const handleEdit = async () => {
     if (!selectedGroup || !formName.trim()) return;
-    const { error } = await supabase.from("groups").update({
-      name: formName.trim(),
-      description: formDesc.trim() || null,
-      icon: formIcon,
-      parent_id: formParentId === "none" ? null : formParentId,
-    }).eq("id", selectedGroup.id);
-    if (error) {
-      toast({ title: "Erreur", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      await groupsService.update(selectedGroup.id, {
+        name: formName.trim(),
+        description: formDesc.trim() || null,
+        icon: formIcon,
+        parent_id: formParentId === "none" ? null : formParentId,
+      });
       toast({ title: "Groupe modifié" });
       resetForm();
       setEditOpen(false);
       fetchGroups();
+    } catch (err: any) {
+      toast({ title: "Erreur", description: err.message, variant: "destructive" });
     }
   };
 
   const handleDelete = async () => {
     if (!selectedGroup) return;
-    const { error } = await supabase.from("groups").delete().eq("id", selectedGroup.id);
-    if (error) {
-      toast({ title: "Erreur", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      await groupsService.delete(selectedGroup.id);
       toast({ title: "Groupe supprimé" });
       setDeleteOpen(false);
       setSelectedGroup(null);
       fetchGroups();
+    } catch (err: any) {
+      toast({ title: "Erreur", description: err.message, variant: "destructive" });
     }
   };
 
@@ -237,7 +231,6 @@ export default function GroupsTab() {
         </div>
       )}
 
-      {/* Add Group Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -252,7 +245,6 @@ export default function GroupsTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Group Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -267,7 +259,6 @@ export default function GroupsTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

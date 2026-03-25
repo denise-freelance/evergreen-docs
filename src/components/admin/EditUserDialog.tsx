@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
+import { usersService } from "@/services/users.service";
+import { groupsService } from "@/services/groups.service";
 import { useToast } from "@/hooks/use-toast";
 
 interface EditUserDialogProps {
@@ -38,9 +39,7 @@ export default function EditUserDialog({ open, onOpenChange, user, onSuccess }: 
       setUsername(user.username);
       setRole(user.role);
       setGroupId(user.group_id ?? "");
-      supabase.from("groups").select("id, name").order("name").then(({ data }) => {
-        if (data) setGroups(data);
-      });
+      groupsService.getAll().then((data) => setGroups(data));
     }
   }, [open, user]);
 
@@ -49,18 +48,11 @@ export default function EditUserDialog({ open, onOpenChange, user, onSuccess }: 
     if (!user || !username.trim() || !role || !groupId) return;
     setLoading(true);
     try {
-      // Update profile
-      const { error: profileErr } = await supabase.from("profiles")
-        .update({ username: username.trim(), group_id: groupId })
-        .eq("user_id", user.user_id);
-      if (profileErr) throw profileErr;
-
-      // Update role
-      const { error: roleErr } = await supabase.from("user_roles")
-        .update({ role: role as any })
-        .eq("user_id", user.user_id);
-      if (roleErr) throw roleErr;
-
+      await usersService.update(user.user_id, {
+        username: username.trim(),
+        group_id: groupId,
+        role,
+      });
       toast({ title: "Utilisateur modifié" });
       onOpenChange(false);
       onSuccess?.();

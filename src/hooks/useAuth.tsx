@@ -1,78 +1,56 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { User, Session } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { authService, AuthUser } from "@/services/auth.service";
 
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
-  profile: { username: string; email: string; is_active: boolean; group_id: string | null } | null;
+  user: AuthUser | null;
   isAdmin: boolean;
   loading: boolean;
+  profile: { username: string; email: string; is_active: boolean; group_id: string | null } | null;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  session: null,
-  profile: null,
   isAdmin: false,
   loading: true,
+  profile: null,
   signOut: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<AuthContextType["profile"]>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        if (session?.user) {
-          // Fetch profile and role with setTimeout to avoid deadlock
-          setTimeout(async () => {
-            const { data: profileData } = await supabase
-              .from("profiles")
-              .select("username, email, is_active, group_id")
-              .eq("user_id", session.user.id)
-              .single();
-            setProfile(profileData);
-
-            const { data: roleData } = await supabase
-              .from("user_roles")
-              .select("role")
-              .eq("user_id", session.user.id)
-              .eq("role", "admin")
-              .maybeSingle();
-            setIsAdmin(!!roleData);
-            setLoading(false);
-          }, 0);
-        } else {
-          setProfile(null);
-          setIsAdmin(false);
-          setLoading(false);
-        }
-      }
-    );
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    const token = localStorage.getItem("auth_token");
+    if (token) {
+      authService.me()
+        .then((userData) => {
+          setUser(userData);
+        })
+        .catch(() => {
+          localStorage.removeItem("auth_token");
+          setUser(null);
+        })
+        .finally(() => setLoading(false));
+    } else {
+      setLoading(false);
+    }
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await authService.logout();
+    setUser(null);
   };
 
+  const profile = user
+    ? { username: user.username, email: user.email, is_active: user.is_active, group_id: user.group_id }
+    : null;
+
+  const isAdmin = user?.role === "admin";
+
   return (
-    <AuthContext.Provider value={{ user, session, profile, isAdmin, loading, signOut }}>
+    <AuthContext.Provider value={{ user, isAdmin, loading, profile, signOut }}>
       {children}
     </AuthContext.Provider>
   );
