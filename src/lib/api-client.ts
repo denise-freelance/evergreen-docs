@@ -13,7 +13,18 @@ let mockUsers = clone(MOCK_USERS);
 let mockGroups = clone(MOCK_GROUPS);
 let mockPermissions = clone(MOCK_PERMISSIONS);
 let mockAuditLogs = clone(MOCK_AUDIT_LOGS);
-let mockLoggedInUser: typeof MOCK_USERS[0] | null = null;
+// Persist mock user across reloads via localStorage
+function getMockLoggedInUser() {
+  const stored = localStorage.getItem("mock_user");
+  if (stored) {
+    try { return JSON.parse(stored); } catch { return null; }
+  }
+  return null;
+}
+function setMockLoggedInUser(user: typeof MOCK_USERS[0] | null) {
+  if (user) localStorage.setItem("mock_user", JSON.stringify(user));
+  else localStorage.removeItem("mock_user");
+}
 
 function delay(ms = 300): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -36,18 +47,19 @@ async function mockRequest<T>(endpoint: string, options: RequestOptions = {}): P
     if (!user || password !== "Admin123!") {
       throw new Error("Email ou mot de passe incorrect.");
     }
-    mockLoggedInUser = user;
+    setMockLoggedInUser(user);
     return { token: "mock-jwt-token-" + user.user_id, user } as T;
   }
 
   if (endpoint === "/auth/logout" && method === "POST") {
-    mockLoggedInUser = null;
+    setMockLoggedInUser(null);
     return {} as T;
   }
 
   if (endpoint === "/auth/me") {
-    if (!mockLoggedInUser) throw new Error("Non authentifié");
-    return mockLoggedInUser as T;
+    const current = getMockLoggedInUser();
+    if (!current) throw new Error("Non authentifié");
+    return current as T;
   }
 
   if (endpoint === "/auth/register" && method === "POST") {
@@ -62,7 +74,7 @@ async function mockRequest<T>(endpoint: string, options: RequestOptions = {}): P
     mockUsers.push(newUser);
     mockAuditLogs.unshift({
       id: "a" + generateId(),
-      user_name: mockLoggedInUser?.username || "Admin",
+      user_name: getMockLoggedInUser()?.username || "Admin",
       action: "Inscription",
       target: newUser.email,
       ip_address: "192.168.1.1",
