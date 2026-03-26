@@ -52,7 +52,7 @@ async function mockRequest<T>(endpoint: string, options: RequestOptions = {}): P
   }
 
   if (endpoint === "/auth/logout" && method === "POST") {
-    mockLoggedInUser = null;
+    setMockLoggedInUser(null);
     return {} as T;
   }
 
