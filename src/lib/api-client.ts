@@ -47,7 +47,7 @@ async function mockRequest<T>(endpoint: string, options: RequestOptions = {}): P
     if (!user || password !== "Admin123!") {
       throw new Error("Email ou mot de passe incorrect.");
     }
-    mockLoggedInUser = user;
+    setMockLoggedInUser(user);
     return { token: "mock-jwt-token-" + user.user_id, user } as T;
   }
 
