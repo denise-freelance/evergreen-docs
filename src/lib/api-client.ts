@@ -57,8 +57,9 @@ async function mockRequest<T>(endpoint: string, options: RequestOptions = {}): P
   }
 
   if (endpoint === "/auth/me") {
-    if (!mockLoggedInUser) throw new Error("Non authentifié");
-    return mockLoggedInUser as T;
+    const current = getMockLoggedInUser();
+    if (!current) throw new Error("Non authentifié");
+    return current as T;
   }
 
   if (endpoint === "/auth/register" && method === "POST") {
