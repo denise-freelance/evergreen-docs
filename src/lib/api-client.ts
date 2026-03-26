@@ -74,7 +74,7 @@ async function mockRequest<T>(endpoint: string, options: RequestOptions = {}): P
     mockUsers.push(newUser);
     mockAuditLogs.unshift({
       id: "a" + generateId(),
-      user_name: mockLoggedInUser?.username || "Admin",
+      user_name: getMockLoggedInUser()?.username || "Admin",
       action: "Inscription",
       target: newUser.email,
       ip_address: "192.168.1.1",
