@@ -13,7 +13,18 @@ let mockUsers = clone(MOCK_USERS);
 let mockGroups = clone(MOCK_GROUPS);
 let mockPermissions = clone(MOCK_PERMISSIONS);
 let mockAuditLogs = clone(MOCK_AUDIT_LOGS);
-let mockLoggedInUser: typeof MOCK_USERS[0] | null = null;
+// Persist mock user across reloads via localStorage
+function getMockLoggedInUser() {
+  const stored = localStorage.getItem("mock_user");
+  if (stored) {
+    try { return JSON.parse(stored); } catch { return null; }
+  }
+  return null;
+}
+function setMockLoggedInUser(user: typeof MOCK_USERS[0] | null) {
+  if (user) localStorage.setItem("mock_user", JSON.stringify(user));
+  else localStorage.removeItem("mock_user");
+}
 
 function delay(ms = 300): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
