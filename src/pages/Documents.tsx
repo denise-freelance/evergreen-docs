@@ -40,6 +40,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import ShareModal from "@/components/ShareModal";
+import DocumentPreview from "@/components/DocumentPreview";
 
 interface TreeNode {
   name: string;
