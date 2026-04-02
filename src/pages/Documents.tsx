@@ -40,6 +40,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import ShareModal from "@/components/ShareModal";
+import DocumentPreview from "@/components/DocumentPreview";
 
 interface TreeNode {
   name: string;
@@ -135,6 +136,7 @@ export default function Documents() {
   const [viewMode, setViewMode] = useState<"list" | "grid" | "columns">("list");
   const [propertiesOpen, setPropertiesOpen] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const FileIcon = selectedFile ? fileIcons[selectedFile.type] || File : File;
 
@@ -231,6 +233,7 @@ export default function Documents() {
                   <div
                     key={file.name}
                     onClick={() => setSelectedFile(file)}
+                    onDoubleClick={() => { setSelectedFile(file); setPreviewOpen(true); }}
                     className={`grid grid-cols-[1fr_100px_100px_100px] gap-2 items-center px-3 py-2.5 rounded-lg cursor-pointer transition-colors text-sm ${
                       selectedFile?.name === file.name ? "bg-accent/10 border border-accent/20" : "hover:bg-secondary/50 border border-transparent"
                     }`}
@@ -303,7 +306,7 @@ export default function Documents() {
                     <p className="font-medium">{selectedFile.name}</p>
                     <p className="text-sm text-muted-foreground">{selectedFile.size} · {selectedFile.modified}</p>
                     <div className="flex gap-2 justify-center">
-                      <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+                      <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setPreviewOpen(true)}>
                         <Eye className="h-3.5 w-3.5" /> Aperçu
                       </Button>
                       <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 gap-1.5 text-xs">
@@ -388,6 +391,7 @@ export default function Documents() {
       )}
 
       <ShareModal open={shareOpen} onOpenChange={setShareOpen} documentName={selectedFile?.name} />
+      <DocumentPreview open={previewOpen} onOpenChange={setPreviewOpen} file={selectedFile} />
     </div>
   );
 }
