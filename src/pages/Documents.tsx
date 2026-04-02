@@ -305,7 +305,7 @@ export default function Documents() {
                     <p className="font-medium">{selectedFile.name}</p>
                     <p className="text-sm text-muted-foreground">{selectedFile.size} · {selectedFile.modified}</p>
                     <div className="flex gap-2 justify-center">
-                      <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+                      <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setPreviewOpen(true)}>
                         <Eye className="h-3.5 w-3.5" /> Aperçu
                       </Button>
                       <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 gap-1.5 text-xs">
