@@ -390,6 +390,7 @@ export default function Documents() {
       )}
 
       <ShareModal open={shareOpen} onOpenChange={setShareOpen} documentName={selectedFile?.name} />
+      <DocumentPreview open={previewOpen} onOpenChange={setPreviewOpen} file={selectedFile} />
     </div>
   );
 }
