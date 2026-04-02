@@ -233,6 +233,7 @@ export default function Documents() {
                   <div
                     key={file.name}
                     onClick={() => setSelectedFile(file)}
+                    onDoubleClick={() => { setSelectedFile(file); setPreviewOpen(true); }}
                     className={`grid grid-cols-[1fr_100px_100px_100px] gap-2 items-center px-3 py-2.5 rounded-lg cursor-pointer transition-colors text-sm ${
                       selectedFile?.name === file.name ? "bg-accent/10 border border-accent/20" : "hover:bg-secondary/50 border border-transparent"
                     }`}
