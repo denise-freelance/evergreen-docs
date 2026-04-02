@@ -136,6 +136,7 @@ export default function Documents() {
   const [viewMode, setViewMode] = useState<"list" | "grid" | "columns">("list");
   const [propertiesOpen, setPropertiesOpen] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const FileIcon = selectedFile ? fileIcons[selectedFile.type] || File : File;
 
