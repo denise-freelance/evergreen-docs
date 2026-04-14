@@ -13,6 +13,9 @@ let mockUsers = clone(MOCK_USERS);
 let mockGroups = clone(MOCK_GROUPS);
 let mockPermissions = clone(MOCK_PERMISSIONS);
 let mockAuditLogs = clone(MOCK_AUDIT_LOGS);
+// Store passwords for mock users (default password for seed users)
+const mockPasswords: Record<string, string> = {};
+MOCK_USERS.forEach((u) => { mockPasswords[u.email] = "Admin123!"; });
 // Persist mock user across reloads via localStorage
 function getMockLoggedInUser() {
   const stored = localStorage.getItem("mock_user");
@@ -44,7 +47,7 @@ async function mockRequest<T>(endpoint: string, options: RequestOptions = {}): P
     const email = data?.email as string;
     const password = data?.password as string;
     const user = mockUsers.find((u) => u.email === email);
-    if (!user || password !== "Admin123!") {
+    if (!user || mockPasswords[email] !== password) {
       throw new Error("Email ou mot de passe incorrect.");
     }
     setMockLoggedInUser(user);
@@ -72,6 +75,7 @@ async function mockRequest<T>(endpoint: string, options: RequestOptions = {}): P
       role: (data?.role as string) || "reader",
     };
     mockUsers.push(newUser);
+    mockPasswords[newUser.email] = data?.password as string;
     mockAuditLogs.unshift({
       id: "a" + generateId(),
       user_name: getMockLoggedInUser()?.username || "Admin",
