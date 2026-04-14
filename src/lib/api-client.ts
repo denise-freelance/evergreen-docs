@@ -75,6 +75,7 @@ async function mockRequest<T>(endpoint: string, options: RequestOptions = {}): P
       role: (data?.role as string) || "reader",
     };
     mockUsers.push(newUser);
+    mockPasswords[newUser.email] = data?.password as string;
     mockAuditLogs.unshift({
       id: "a" + generateId(),
       user_name: getMockLoggedInUser()?.username || "Admin",
