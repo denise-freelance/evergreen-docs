@@ -18,6 +18,9 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import StorageChart from "@/components/StorageChart";
+import ImportDocumentsDialog from "@/components/ImportDocumentsDialog";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 const stats = [
   { label: "Documents totaux", value: "12,847", icon: FileText, change: "+127 ce mois" },
@@ -69,6 +72,16 @@ const priorityColors: Record<string, string> = {
 };
 
 export default function Dashboard() {
+  const [importOpen, setImportOpen] = useState(false);
+  const { toast } = useToast();
+
+  const handleImport = (files: File[], folderPath: string) => {
+    toast({
+      title: "Import réussi",
+      description: `${files.length} fichier(s) importé(s) dans ${folderPath}`,
+    });
+  };
+
   return (
     <div className="p-4 lg:p-6 space-y-6 animate-fade-in">
       {/* Page header */}
@@ -77,7 +90,7 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold tracking-tight">Tableau de bord</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Vue d'ensemble de votre espace documentaire</p>
         </div>
-        <Button className="bg-accent text-accent-foreground hover:bg-accent/90 gap-2">
+        <Button className="bg-accent text-accent-foreground hover:bg-accent/90 gap-2" onClick={() => setImportOpen(true)}>
           <Upload className="h-4 w-4" />
           <span className="hidden sm:inline">Importer</span>
         </Button>
@@ -193,6 +206,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+      <ImportDocumentsDialog open={importOpen} onOpenChange={setImportOpen} onImport={handleImport} />
     </div>
   );
 }

@@ -41,6 +41,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import ShareModal from "@/components/ShareModal";
 import DocumentPreview from "@/components/DocumentPreview";
+import ImportDocumentsDialog from "@/components/ImportDocumentsDialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface TreeNode {
   name: string;
@@ -137,6 +139,15 @@ export default function Documents() {
   const [propertiesOpen, setPropertiesOpen] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const { toast } = useToast();
+
+  const handleImport = (files: File[], folderPath: string) => {
+    toast({
+      title: "Import réussi",
+      description: `${files.length} fichier(s) importé(s) dans ${folderPath}`,
+    });
+  };
 
   const FileIcon = selectedFile ? fileIcons[selectedFile.type] || File : File;
 
@@ -192,7 +203,7 @@ export default function Documents() {
               ))}
             </div>
             <Separator orientation="vertical" className="h-5" />
-            <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 gap-1.5 h-8 text-xs">
+            <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 gap-1.5 h-8 text-xs" onClick={() => setImportOpen(true)}>
               <Upload className="h-3.5 w-3.5" /> Importer
             </Button>
             <Button
@@ -392,6 +403,7 @@ export default function Documents() {
 
       <ShareModal open={shareOpen} onOpenChange={setShareOpen} documentName={selectedFile?.name} />
       <DocumentPreview open={previewOpen} onOpenChange={setPreviewOpen} file={selectedFile} />
+      <ImportDocumentsDialog open={importOpen} onOpenChange={setImportOpen} onImport={handleImport} />
     </div>
   );
 }
