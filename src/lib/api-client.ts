@@ -13,6 +13,9 @@ let mockUsers = clone(MOCK_USERS);
 let mockGroups = clone(MOCK_GROUPS);
 let mockPermissions = clone(MOCK_PERMISSIONS);
 let mockAuditLogs = clone(MOCK_AUDIT_LOGS);
+// Store passwords for mock users (default password for seed users)
+const mockPasswords: Record<string, string> = {};
+MOCK_USERS.forEach((u) => { mockPasswords[u.email] = "Admin123!"; });
 // Persist mock user across reloads via localStorage
 function getMockLoggedInUser() {
   const stored = localStorage.getItem("mock_user");
