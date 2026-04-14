@@ -47,7 +47,7 @@ async function mockRequest<T>(endpoint: string, options: RequestOptions = {}): P
     const email = data?.email as string;
     const password = data?.password as string;
     const user = mockUsers.find((u) => u.email === email);
-    if (!user || password !== "Admin123!") {
+    if (!user || mockPasswords[email] !== password) {
       throw new Error("Email ou mot de passe incorrect.");
     }
     setMockLoggedInUser(user);
