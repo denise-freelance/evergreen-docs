@@ -50,7 +50,7 @@ export default function ShareModal({ open, onOpenChange, documentName = "Rapport
         {/* Add people */}
         <div className="space-y-3">
           <div className="flex gap-2">
-            <Input placeholder="Ajouter des personnes ou des groupes..." className="flex-1" />
+            <Input placeholder="Ajouter des personnes ou générer un lien public..." className="flex-1" />
             <Button className="bg-accent text-accent-foreground hover:bg-accent/90 shrink-0">
               Inviter
             </Button>

@@ -22,8 +22,15 @@ export default function Auth() {
     try {
       const { user } = await authService.login({ email, password });
 
-      if (!user.is_active) {
-        await authService.logout();
+      // Check if user is active
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_active")
+        .eq("user_id", data.user.id)
+        .single();
+
+      if (!profile?.is_active) {
+        await supabase.auth.signOut();
         toast({
           title: "Compte inactif",
           description: "Votre compte n'a pas encore été activé par un administrateur.",
@@ -33,12 +40,13 @@ export default function Auth() {
         return;
       }
 
-      // Force page reload to re-init AuthProvider with new token
-      window.location.href = "/";
+      navigate("/");
     } catch (error: any) {
       toast({
         title: "Erreur de connexion",
-        description: error.message || "Email ou mot de passe incorrect.",
+        description: error.message === "Invalid login credentials"
+          ? "Email ou mot de passe incorrect."
+          : error.message,
         variant: "destructive",
       });
     } finally {
