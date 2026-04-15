@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { authService } from "@/services/auth.service";
+import { supabase } from "@/integrations/supabase/client";
 import { FileText, Mail, Lock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,8 @@ export default function Auth() {
     setLoading(true);
 
     try {
-      const { user } = await authService.login({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
 
       // Check if user is active
       const { data: profile } = await supabase
@@ -42,12 +43,13 @@ export default function Auth() {
       }
 
       navigate("/");
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
       toast({
         title: "Erreur de connexion",
-        description: error.message === "Invalid login credentials"
+        description: errorMessage === "Invalid login credentials"
           ? "Email ou mot de passe incorrect."
-          : error.message,
+          : errorMessage,
         variant: "destructive",
       });
     } finally {;
@@ -58,6 +60,7 @@ export default function Auth() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-8">
+        {/* Logo */}
         <div className="text-center space-y-2">
           <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl gradient-accent mx-auto">
             <FileText className="h-7 w-7 text-accent-foreground" />
