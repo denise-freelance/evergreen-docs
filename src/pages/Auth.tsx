@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { authService } from "@/services/auth.service";
 import { FileText, Mail, Lock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
@@ -20,8 +21,7 @@ export default function Auth() {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      const { user } = await authService.login({ email, password });
 
       // Check if user is active
       const { data: profile } = await supabase
@@ -42,16 +42,15 @@ export default function Auth() {
       }
 
       navigate("/");
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+    } catch (error: any) {
       toast({
         title: "Erreur de connexion",
-        description: errorMessage === "Invalid login credentials"
+        description: error.message === "Invalid login credentials"
           ? "Email ou mot de passe incorrect."
-          : errorMessage,
+          : error.message,
         variant: "destructive",
       });
-    } finally {
+    } finally {;
       setLoading(false);
     }
   };
@@ -59,7 +58,6 @@ export default function Auth() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-8">
-        {/* Logo */}
         <div className="text-center space-y-2">
           <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl gradient-accent mx-auto">
             <FileText className="h-7 w-7 text-accent-foreground" />
