@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { authService } from "@/services/auth.service";
+import { supabase } from "@/integrations/supabase/client";
 import { FileText, Mail, Lock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,10 +20,18 @@ export default function Auth() {
     setLoading(true);
 
     try {
-      const { user } = await authService.login({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
 
-      if (!user.is_active) {
-        await authService.logout();
+      // Check if user is active
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_active")
+        .eq("user_id", data.user.id)
+        .single();
+
+      if (!profile?.is_active) {
+        await supabase.auth.signOut();
         toast({
           title: "Compte inactif",
           description: "Votre compte n'a pas encore été activé par un administrateur.",
@@ -33,12 +41,14 @@ export default function Auth() {
         return;
       }
 
-      // Force page reload to re-init AuthProvider with new token
-      window.location.href = "/";
-    } catch (error: any) {
+      navigate("/");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
       toast({
         title: "Erreur de connexion",
-        description: error.message || "Email ou mot de passe incorrect.",
+        description: errorMessage === "Invalid login credentials"
+          ? "Email ou mot de passe incorrect."
+          : errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -49,6 +59,7 @@ export default function Auth() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-8">
+        {/* Logo */}
         <div className="text-center space-y-2">
           <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl gradient-accent mx-auto">
             <FileText className="h-7 w-7 text-accent-foreground" />
