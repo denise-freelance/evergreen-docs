@@ -1,55 +1,27 @@
+import { useState, useMemo } from "react";
 import {
-  FileText,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  TrendingUp,
-  Users,
-  Upload,
-  ArrowUpRight,
-  FileSpreadsheet,
-  FileImage,
-  File,
-  MessageSquare,
+  FileText, Clock, CheckCircle2, Users, Upload, ArrowUpRight,
+  FileSpreadsheet, FileImage, File, Search, X, Eye,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
 import StorageChart from "@/components/StorageChart";
 import ImportDocumentsDialog from "@/components/ImportDocumentsDialog";
+import DocumentPreview from "@/components/DocumentPreview";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { useDocumentStore, type DocFile } from "@/stores/useDocumentStore";
+import { useNavigate } from "react-router-dom";
 
-const stats = [
-  { label: "Documents totaux", value: "12,847", icon: FileText, change: "+127 ce mois" },
-  { label: "En attente", value: "23", icon: Clock, change: "5 urgents" },
-  { label: "Validés aujourd'hui", value: "8", icon: CheckCircle2, change: "+3 vs hier" },
-  { label: "Collaborateurs actifs", value: "42", icon: Users, change: "en ligne" },
-];
-
-const recentDocs = [
-  { name: "Rapport Q4 2025.pdf", author: "Marie C.", time: "il y a 5 min", icon: FileText, status: "pending" },
-  { name: "Budget_previsionnel.xlsx", author: "Pierre M.", time: "il y a 23 min", icon: FileSpreadsheet, status: "approved" },
-  { name: "Photo_chantier_03.jpg", author: "Sophie L.", time: "il y a 1h", icon: FileImage, status: "draft" },
-  { name: "Contrat_fournisseur_v3.pdf", author: "Jean D.", time: "il y a 2h", icon: FileText, status: "rejected" },
-  { name: "Specs_techniques.docx", author: "Luc B.", time: "il y a 3h", icon: File, status: "approved" },
-];
-
-const pendingValidations = [
-  { name: "Devis_renovation.pdf", requester: "Sophie L.", deadline: "Aujourd'hui", priority: "high" },
-  { name: "Plan_formation_2026.docx", requester: "Pierre M.", deadline: "Demain", priority: "medium" },
-  { name: "Audit_sécurité.pdf", requester: "Luc B.", deadline: "23 Fév", priority: "low" },
-];
-
-const activityFeed = [
-  { user: "MC", name: "Marie Curie", action: "a modifié", target: "Rapport Q4 2025.pdf", time: "5 min" },
-  { user: "PM", name: "Pierre Martin", action: "a partagé", target: "Budget_previsionnel.xlsx", time: "23 min" },
-  { user: "SL", name: "Sophie Lemoine", action: "a commenté", target: "Plan_chantier.pdf", time: "1h" },
-  { user: "JD", name: "Jean Dupont", action: "a validé", target: "Contrat_fournisseur_v2.pdf", time: "2h" },
-  { user: "LB", name: "Luc Bernard", action: "a importé", target: "3 documents", time: "3h" },
-];
+const fileIcons: Record<string, any> = {
+  pdf: FileText,
+  xlsx: FileSpreadsheet,
+  image: FileImage,
+  doc: File,
+};
 
 const statusColors: Record<string, string> = {
   pending: "bg-warning/10 text-warning border-warning/20",
@@ -65,26 +37,74 @@ const statusLabels: Record<string, string> = {
   rejected: "Rejeté",
 };
 
-const priorityColors: Record<string, string> = {
-  high: "bg-destructive/10 text-destructive",
-  medium: "bg-warning/10 text-warning",
-  low: "bg-info/10 text-info",
-};
-
 export default function Dashboard() {
   const [importOpen, setImportOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [previewDoc, setPreviewDoc] = useState<DocFile | null>(null);
   const { toast } = useToast();
+  const { profile } = useAuth();
+  const navigate = useNavigate();
+
+  const {
+    addDocuments,
+    searchDocuments,
+    getRecentDocuments,
+    getPendingValidations,
+    getRecentActivities,
+    validateDocument,
+    viewDocument,
+    documents,
+    activities,
+  } = useDocumentStore();
+
+  const recentDocs = getRecentDocuments(5);
+  const pendingValidations = getPendingValidations();
+  const activityFeed = getRecentActivities(6);
+  const searchResults = useMemo(() => searchDocuments(searchQuery), [searchQuery, documents]);
+
+  const totalDocs = documents.length;
+  const pendingCount = pendingValidations.length;
+  const approvedToday = documents.filter(
+    (d) => d.status === "approved" && Date.now() - d.modifiedAt < 86400000
+  ).length;
+
+  const stats = [
+    { label: "Documents totaux", value: String(totalDocs), icon: FileText, change: `${documents.filter((d) => Date.now() - d.modifiedAt < 2592000000).length} ce mois` },
+    { label: "En attente", value: String(pendingCount), icon: Clock, change: `${pendingValidations.filter((d) => d.tags.includes("urgent")).length || pendingCount} à traiter` },
+    { label: "Validés aujourd'hui", value: String(approvedToday), icon: CheckCircle2, change: "aujourd'hui" },
+    { label: "Collaborateurs actifs", value: "42", icon: Users, change: "en ligne" },
+  ];
 
   const handleImport = (files: File[], folderPath: string) => {
+    const author = profile?.username || "Utilisateur";
+    addDocuments(files, folderPath, author);
     toast({
       title: "Import réussi",
       description: `${files.length} fichier(s) importé(s) dans ${folderPath}`,
     });
   };
 
+  const handleValidate = (id: string, approved: boolean) => {
+    const author = profile?.username || "Administrateur";
+    validateDocument(id, approved, author);
+    toast({
+      title: approved ? "Document validé" : "Document rejeté",
+      description: approved ? "Le document a été validé avec succès." : "Le document a été rejeté.",
+    });
+  };
+
+  const handlePreview = (doc: DocFile) => {
+    viewDocument(doc.id);
+    setPreviewDoc(doc);
+  };
+
+  const previewFile = previewDoc
+    ? { name: previewDoc.name, type: previewDoc.type, size: previewDoc.size, modified: previewDoc.modified, author: previewDoc.author, status: previewDoc.status, version: previewDoc.version, tags: previewDoc.tags }
+    : null;
+
   return (
     <div className="p-4 lg:p-6 space-y-6 animate-fade-in">
-      {/* Page header */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Tableau de bord</h1>
@@ -96,7 +116,61 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      {/* Stats grid */}
+      {/* Search bar */}
+      <div className="relative max-w-xl">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Recherche instantanée dans tous les dossiers et fichiers..."
+          className="pl-10 h-11 text-sm bg-secondary border-0 focus-visible:ring-1 focus-visible:ring-accent"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        {searchQuery && (
+          <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8" onClick={() => setSearchQuery("")}>
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+
+      {/* Search results overlay */}
+      {searchQuery.trim() && (
+        <Card className="shadow-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">
+              {searchResults.length} résultat{searchResults.length !== 1 ? "s" : ""} pour « {searchQuery} »
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1 max-h-64 overflow-y-auto">
+            {searchResults.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">Aucun résultat trouvé</p>
+            ) : (
+              searchResults.map((doc) => {
+                const Icon = fileIcons[doc.type] || File;
+                return (
+                  <div
+                    key={doc.id}
+                    className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-secondary/50 transition-colors cursor-pointer"
+                    onClick={() => handlePreview(doc)}
+                  >
+                    <div className="rounded-lg bg-secondary p-2">
+                      <Icon className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{doc.name}</p>
+                      <p className="text-xs text-muted-foreground">{doc.folder} · {doc.author}</p>
+                    </div>
+                    <Badge variant="outline" className={`text-[10px] ${statusColors[doc.status]}`}>
+                      {statusLabels[doc.status]}
+                    </Badge>
+                  </div>
+                );
+              })
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
           <Card key={stat.label} className="shadow-card hover:shadow-card-hover transition-shadow">
@@ -122,29 +196,38 @@ export default function Dashboard() {
         <Card className="lg:col-span-2 shadow-card">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <CardTitle className="text-sm font-semibold">Documents récents</CardTitle>
-            <Button variant="ghost" size="sm" className="text-xs text-accent hover:text-accent gap-1">
+            <Button variant="ghost" size="sm" className="text-xs text-accent hover:text-accent gap-1" onClick={() => navigate("/documents")}>
               Voir tout <ArrowUpRight className="h-3 w-3" />
             </Button>
           </CardHeader>
           <CardContent className="space-y-1">
-            {recentDocs.map((doc) => (
-              <div key={doc.name} className="flex items-center gap-3 py-2.5 px-2 rounded-lg hover:bg-secondary/50 transition-colors cursor-pointer">
-                <div className="rounded-lg bg-secondary p-2">
-                  <doc.icon className="h-4 w-4 text-muted-foreground" />
+            {recentDocs.map((doc) => {
+              const Icon = fileIcons[doc.type] || File;
+              return (
+                <div
+                  key={doc.id}
+                  className="flex items-center gap-3 py-2.5 px-2 rounded-lg hover:bg-secondary/50 transition-colors cursor-pointer"
+                  onClick={() => handlePreview(doc)}
+                >
+                  <div className="rounded-lg bg-secondary p-2">
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{doc.name}</p>
+                    <p className="text-xs text-muted-foreground">{doc.author} · {doc.folder}</p>
+                  </div>
+                  <Badge variant="outline" className={`text-[10px] ${statusColors[doc.status]}`}>
+                    {statusLabels[doc.status]}
+                  </Badge>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={(e) => { e.stopPropagation(); handlePreview(doc); }}>
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{doc.name}</p>
-                  <p className="text-xs text-muted-foreground">{doc.author} · {doc.time}</p>
-                </div>
-                <Badge variant="outline" className={`text-[10px] ${statusColors[doc.status]}`}>
-                  {statusLabels[doc.status]}
-                </Badge>
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
 
-        {/* Storage */}
         <StorageChart />
       </div>
 
@@ -161,22 +244,26 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {pendingValidations.map((item) => (
-              <div key={item.name} className="flex items-center gap-3 py-2.5 px-2 rounded-lg hover:bg-secondary/50 transition-colors">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{item.name}</p>
-                  <p className="text-xs text-muted-foreground">par {item.requester} · Échéance : {item.deadline}</p>
+            {pendingValidations.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">Aucune validation en attente</p>
+            ) : (
+              pendingValidations.map((item) => (
+                <div key={item.id} className="flex items-center gap-3 py-2.5 px-2 rounded-lg hover:bg-secondary/50 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{item.name}</p>
+                    <p className="text-xs text-muted-foreground">par {item.author} · {item.folder}</p>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <Button size="sm" className="h-7 text-xs bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => handleValidate(item.id, true)}>
+                      Valider
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleValidate(item.id, false)}>
+                      Rejeter
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex gap-1.5">
-                  <Button size="sm" className="h-7 text-xs bg-accent text-accent-foreground hover:bg-accent/90">
-                    Valider
-                  </Button>
-                  <Button size="sm" variant="outline" className="h-7 text-xs">
-                    Rejeter
-                  </Button>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
 
@@ -186,27 +273,29 @@ export default function Dashboard() {
             <CardTitle className="text-sm font-semibold">Fil d'activité</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {activityFeed.map((item, i) => (
-              <div key={i} className="flex items-start gap-3">
+            {activityFeed.map((item) => (
+              <div key={item.id} className="flex items-start gap-3">
                 <Avatar className="h-7 w-7 mt-0.5">
                   <AvatarFallback className="bg-primary text-primary-foreground text-[9px] font-semibold">
-                    {item.user}
+                    {item.userInitials}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm">
-                    <span className="font-medium">{item.name}</span>{" "}
+                    <span className="font-medium">{item.userName}</span>{" "}
                     <span className="text-muted-foreground">{item.action}</span>{" "}
                     <span className="font-medium">{item.target}</span>
                   </p>
-                  <p className="text-xs text-muted-foreground">il y a {item.time}</p>
+                  <p className="text-xs text-muted-foreground">{item.time}</p>
                 </div>
               </div>
             ))}
           </CardContent>
         </Card>
       </div>
+
       <ImportDocumentsDialog open={importOpen} onOpenChange={setImportOpen} onImport={handleImport} />
+      <DocumentPreview open={!!previewDoc} onOpenChange={(open) => !open && setPreviewDoc(null)} file={previewFile} />
     </div>
   );
 }
