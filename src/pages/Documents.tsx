@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Folder,
   FileText,
@@ -27,6 +27,8 @@ import {
   Search,
   Filter,
 } from "lucide-react";
+import { useDocumentStore, type DocFile } from "@/stores/useDocumentStore";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -78,16 +80,7 @@ const folderTree: TreeNode[] = [
   { name: "Modèles", type: "folder" },
 ];
 
-const files = [
-  { name: "Rapport Q4 2025.pdf", type: "pdf", size: "2.4 Mo", modified: "13 Fév 2026", author: "Marie Curie", status: "approved", version: "v3", tags: ["rapport", "Q4"] },
-  { name: "Budget_previsionnel.xlsx", type: "xlsx", size: "890 Ko", modified: "12 Fév 2026", author: "Pierre Martin", status: "pending", version: "v2", tags: ["budget"] },
-  { name: "Photo_chantier_03.jpg", type: "image", size: "5.1 Mo", modified: "11 Fév 2026", author: "Sophie Lemoine", status: "draft", version: "v1", tags: ["chantier", "photo"] },
-  { name: "Contrat_fournisseur.pdf", type: "pdf", size: "1.2 Mo", modified: "10 Fév 2026", author: "Jean Dupont", status: "approved", version: "v5", tags: ["contrat", "juridique"] },
-  { name: "Specs_techniques.docx", type: "doc", size: "3.7 Mo", modified: "9 Fév 2026", author: "Luc Bernard", status: "draft", version: "v1", tags: ["technique"] },
-  { name: "Facture_02_2026.pdf", type: "pdf", size: "145 Ko", modified: "8 Fév 2026", author: "Marie Curie", status: "approved", version: "v1", tags: ["facture"] },
-  { name: "Plan_formation.pptx", type: "doc", size: "12.3 Mo", modified: "7 Fév 2026", author: "Pierre Martin", status: "pending", version: "v2", tags: ["formation", "RH"] },
-  { name: "Organigramme.png", type: "image", size: "780 Ko", modified: "6 Fév 2026", author: "Sophie Lemoine", status: "approved", version: "v4", tags: ["organisation"] },
-];
+// files now come from the store
 
 const fileIcons: Record<string, any> = {
   pdf: FileText,
