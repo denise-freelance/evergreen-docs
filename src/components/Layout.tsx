@@ -10,15 +10,21 @@ import {
   Search,
   Menu,
   FileText,
+  FileSpreadsheet,
+  FileImage,
   ChevronDown,
   LogOut,
   HelpCircle,
   GitPullRequest,
   Share2,
+  File as FileIcon,
+  X,
+  Eye,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,9 +34,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { useDocumentStore } from "@/stores/useDocumentStore";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, FileSpreadsheet, FileImage, File as FileIcon, X, Eye } from "lucide-react";
 
 const baseNavItems = [
   { to: "/", icon: LayoutDashboard, label: "Tableau de bord" },
