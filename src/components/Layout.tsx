@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { useState, useMemo } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   FolderOpen,
@@ -27,6 +27,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
+import { useDocumentStore } from "@/stores/useDocumentStore";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { FileText, FileSpreadsheet, FileImage, File as FileIcon, X, Eye } from "lucide-react";
 
 const baseNavItems = [
   { to: "/", icon: LayoutDashboard, label: "Tableau de bord" },
