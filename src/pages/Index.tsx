@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import StorageChart from "@/components/StorageChart";
 import ImportDocumentsDialog from "@/components/ImportDocumentsDialog";
 import DocumentPreview from "@/components/DocumentPreview";
+import RejectReasonDialog from "@/components/RejectReasonDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useDocumentStore, type DocFile } from "@/stores/useDocumentStore";
@@ -41,6 +42,7 @@ export default function Dashboard() {
   const [importOpen, setImportOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [previewDoc, setPreviewDoc] = useState<DocFile | null>(null);
+  const [rejectDoc, setRejectDoc] = useState<DocFile | null>(null);
   const { toast } = useToast();
   const { profile } = useAuth();
   const navigate = useNavigate();
@@ -88,9 +90,20 @@ export default function Dashboard() {
     const author = profile?.username || "Administrateur";
     validateDocument(id, approved, author);
     toast({
-      title: approved ? "Document validé" : "Document rejeté",
-      description: approved ? "Le document a été validé avec succès." : "Le document a été rejeté.",
+      title: "Document validé",
+      description: "Le document a été validé avec succès.",
     });
+  };
+
+  const handleRejectConfirm = (reason: string) => {
+    if (!rejectDoc) return;
+    const author = profile?.username || "Administrateur";
+    validateDocument(rejectDoc.id, false, author);
+    toast({
+      title: "Document rejeté",
+      description: `Motif : ${reason}`,
+    });
+    setRejectDoc(null);
   };
 
   const handlePreview = (doc: DocFile) => {
@@ -257,7 +270,7 @@ export default function Dashboard() {
                     <Button size="sm" className="h-7 text-xs bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => handleValidate(item.id, true)}>
                       Valider
                     </Button>
-                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleValidate(item.id, false)}>
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setRejectDoc(item)}>
                       Rejeter
                     </Button>
                   </div>
@@ -296,6 +309,12 @@ export default function Dashboard() {
 
       <ImportDocumentsDialog open={importOpen} onOpenChange={setImportOpen} onImport={handleImport} />
       <DocumentPreview open={!!previewDoc} onOpenChange={(open) => !open && setPreviewDoc(null)} file={previewFile} />
+      <RejectReasonDialog
+        open={!!rejectDoc}
+        onOpenChange={(open) => !open && setRejectDoc(null)}
+        documentName={rejectDoc?.name || ""}
+        onConfirm={handleRejectConfirm}
+      />
     </div>
   );
 }
