@@ -127,7 +127,11 @@ function TreeItem({ node, depth = 0 }: { node: TreeNode; depth?: number }) {
 }
 
 export default function Documents() {
-  const [selectedFile, setSelectedFile] = useState<typeof files[0] | null>(files[0]);
+  const { documents, addDocuments, viewDocument } = useDocumentStore();
+  const { profile } = useAuth();
+  const files = documents;
+
+  const [selectedFile, setSelectedFile] = useState<DocFile | null>(files[0] || null);
   const [viewMode, setViewMode] = useState<"list" | "grid" | "columns">("list");
   const [propertiesOpen, setPropertiesOpen] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
@@ -135,10 +139,12 @@ export default function Documents() {
   const [importOpen, setImportOpen] = useState(false);
   const { toast } = useToast();
 
-  const handleImport = (files: File[], folderPath: string) => {
+  const handleImport = (importedFiles: File[], folderPath: string) => {
+    const author = profile?.username || "Utilisateur";
+    addDocuments(importedFiles, folderPath, author);
     toast({
       title: "Import réussi",
-      description: `${files.length} fichier(s) importé(s) dans ${folderPath}`,
+      description: `${importedFiles.length} fichier(s) importé(s) dans ${folderPath}`,
     });
   };
 
