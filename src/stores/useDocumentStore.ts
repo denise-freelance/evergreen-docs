@@ -8,6 +8,7 @@ export interface DocFile {
   sizeBytes: number;
   modified: string;
   modifiedAt: number; // timestamp for sorting
+  createdAt: number;
   author: string;
   status: "pending" | "approved" | "draft" | "rejected";
   version: string;
@@ -29,9 +30,16 @@ export interface ActivityEntry {
   timestamp: number;
 }
 
+export interface FolderNode {
+  name: string;
+  path: string;
+  children?: FolderNode[];
+}
+
 interface DocumentStore {
   documents: DocFile[];
   activities: ActivityEntry[];
+  folders: FolderNode[];
   addDocuments: (files: File[], folder: string, author: string) => void;
   viewDocument: (id: string, author: string) => void;
   validateDocument: (id: string, approved: boolean, author: string) => void;
@@ -39,6 +47,7 @@ interface DocumentStore {
   getRecentDocuments: (limit?: number) => DocFile[];
   getPendingValidations: () => DocFile[];
   getRecentActivities: (limit?: number) => ActivityEntry[];
+  createFolder: (parentPath: string | null, name: string, author: string) => string;
 }
 
 function generateId() {
@@ -63,31 +72,55 @@ function guessType(name: string): DocFile["type"] {
   return "doc";
 }
 
-function timeAgo(ts: number): string {
-  const diff = Date.now() - ts;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "à l'instant";
-  if (mins < 60) return `il y a ${mins} min`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `il y a ${hours}h`;
-  const days = Math.floor(hours / 24);
-  return `il y a ${days}j`;
-}
-
 const now = Date.now();
 
+const SEED_FOLDERS: FolderNode[] = [
+  {
+    name: "Projets",
+    path: "/Projets",
+    children: [
+      {
+        name: "Chantier Lyon",
+        path: "/Projets/Chantier Lyon",
+        children: [
+          { name: "Plans", path: "/Projets/Chantier Lyon/Plans" },
+          { name: "Devis", path: "/Projets/Chantier Lyon/Devis" },
+        ],
+      },
+      { name: "Rénovation Paris", path: "/Projets/Rénovation Paris" },
+    ],
+  },
+  {
+    name: "Comptabilité",
+    path: "/Comptabilité",
+    children: [
+      { name: "Factures 2025", path: "/Comptabilité/Factures 2025" },
+      { name: "Budgets", path: "/Comptabilité/Budgets" },
+    ],
+  },
+  {
+    name: "Ressources Humaines",
+    path: "/Ressources Humaines",
+    children: [
+      { name: "Contrats", path: "/Ressources Humaines/Contrats" },
+      { name: "Formations", path: "/Ressources Humaines/Formations" },
+    ],
+  },
+  { name: "Modèles", path: "/Modèles" },
+];
+
 const SEED_DOCUMENTS: DocFile[] = [
-  { id: "d1", name: "Rapport Q4 2025.pdf", type: "pdf", size: "2.4 Mo", sizeBytes: 2516582, modified: "13 Fév 2026", modifiedAt: now - 300000, author: "Marie Curie", status: "pending", version: "v3", tags: ["rapport", "Q4"], folder: "/Projets/Chantier Lyon" },
-  { id: "d2", name: "Budget_previsionnel.xlsx", type: "xlsx", size: "890 Ko", sizeBytes: 911360, modified: "12 Fév 2026", modifiedAt: now - 1380000, author: "Pierre Martin", status: "approved", version: "v2", tags: ["budget"], folder: "/Comptabilité/Budgets" },
-  { id: "d3", name: "Photo_chantier_03.jpg", type: "image", size: "5.1 Mo", sizeBytes: 5347737, modified: "11 Fév 2026", modifiedAt: now - 3600000, author: "Sophie Lemoine", status: "draft", version: "v1", tags: ["chantier", "photo"], folder: "/Projets/Chantier Lyon" },
-  { id: "d4", name: "Contrat_fournisseur_v3.pdf", type: "pdf", size: "1.2 Mo", sizeBytes: 1258291, modified: "10 Fév 2026", modifiedAt: now - 7200000, author: "Jean Dupont", status: "rejected", version: "v3", tags: ["contrat", "juridique"], folder: "/Ressources Humaines/Contrats" },
-  { id: "d5", name: "Specs_techniques.docx", type: "doc", size: "3.7 Mo", sizeBytes: 3880140, modified: "9 Fév 2026", modifiedAt: now - 10800000, author: "Luc Bernard", status: "approved", version: "v1", tags: ["technique"], folder: "/Projets" },
-  { id: "d6", name: "Facture_02_2026.pdf", type: "pdf", size: "145 Ko", sizeBytes: 148480, modified: "8 Fév 2026", modifiedAt: now - 14400000, author: "Marie Curie", status: "approved", version: "v1", tags: ["facture"], folder: "/Comptabilité/Factures 2025" },
-  { id: "d7", name: "Plan_formation.pptx", type: "doc", size: "12.3 Mo", sizeBytes: 12897484, modified: "7 Fév 2026", modifiedAt: now - 18000000, author: "Pierre Martin", status: "pending", version: "v2", tags: ["formation", "RH"], folder: "/Ressources Humaines/Formations" },
-  { id: "d8", name: "Organigramme.png", type: "image", size: "780 Ko", sizeBytes: 798720, modified: "6 Fév 2026", modifiedAt: now - 21600000, author: "Sophie Lemoine", status: "approved", version: "v4", tags: ["organisation"], folder: "/Ressources Humaines" },
-  { id: "d9", name: "Devis_renovation.pdf", type: "pdf", size: "560 Ko", sizeBytes: 573440, modified: "5 Fév 2026", modifiedAt: now - 25200000, author: "Sophie Lemoine", status: "pending", version: "v1", tags: ["devis"], folder: "/Projets/Rénovation Paris" },
-  { id: "d10", name: "Plan_formation_2026.docx", type: "doc", size: "2.1 Mo", sizeBytes: 2202009, modified: "4 Fév 2026", modifiedAt: now - 28800000, author: "Pierre Martin", status: "pending", version: "v1", tags: ["formation"], folder: "/Ressources Humaines/Formations" },
-  { id: "d11", name: "Audit_sécurité.pdf", type: "pdf", size: "3.4 Mo", sizeBytes: 3565158, modified: "3 Fév 2026", modifiedAt: now - 32400000, author: "Luc Bernard", status: "pending", version: "v1", tags: ["audit", "sécurité"], folder: "/Projets" },
+  { id: "d1", name: "Rapport Q4 2025.pdf", type: "pdf", size: "2.4 Mo", sizeBytes: 2516582, modified: "13 Fév 2026", modifiedAt: now - 300000, createdAt: now - 86400000 * 5, author: "Marie Curie", status: "pending", version: "v3", tags: ["rapport", "Q4"], folder: "/Projets/Chantier Lyon" },
+  { id: "d2", name: "Budget_previsionnel.xlsx", type: "xlsx", size: "890 Ko", sizeBytes: 911360, modified: "12 Fév 2026", modifiedAt: now - 1380000, createdAt: now - 86400000 * 7, author: "Pierre Martin", status: "approved", version: "v2", tags: ["budget"], folder: "/Comptabilité/Budgets" },
+  { id: "d3", name: "Photo_chantier_03.jpg", type: "image", size: "5.1 Mo", sizeBytes: 5347737, modified: "11 Fév 2026", modifiedAt: now - 3600000, createdAt: now - 86400000 * 10, author: "Sophie Lemoine", status: "draft", version: "v1", tags: ["chantier", "photo"], folder: "/Projets/Chantier Lyon" },
+  { id: "d4", name: "Contrat_fournisseur_v3.pdf", type: "pdf", size: "1.2 Mo", sizeBytes: 1258291, modified: "10 Fév 2026", modifiedAt: now - 7200000, createdAt: now - 86400000 * 15, author: "Jean Dupont", status: "rejected", version: "v3", tags: ["contrat", "juridique"], folder: "/Ressources Humaines/Contrats" },
+  { id: "d5", name: "Specs_techniques.docx", type: "doc", size: "3.7 Mo", sizeBytes: 3880140, modified: "9 Fév 2026", modifiedAt: now - 10800000, createdAt: now - 86400000 * 20, author: "Luc Bernard", status: "approved", version: "v1", tags: ["technique"], folder: "/Projets" },
+  { id: "d6", name: "Facture_02_2026.pdf", type: "pdf", size: "145 Ko", sizeBytes: 148480, modified: "8 Fév 2026", modifiedAt: now - 14400000, createdAt: now - 86400000 * 3, author: "Marie Curie", status: "approved", version: "v1", tags: ["facture"], folder: "/Comptabilité/Factures 2025" },
+  { id: "d7", name: "Plan_formation.pptx", type: "doc", size: "12.3 Mo", sizeBytes: 12897484, modified: "7 Fév 2026", modifiedAt: now - 18000000, createdAt: now - 86400000 * 12, author: "Pierre Martin", status: "pending", version: "v2", tags: ["formation", "RH"], folder: "/Ressources Humaines/Formations" },
+  { id: "d8", name: "Organigramme.png", type: "image", size: "780 Ko", sizeBytes: 798720, modified: "6 Fév 2026", modifiedAt: now - 21600000, createdAt: now - 86400000 * 30, author: "Sophie Lemoine", status: "approved", version: "v4", tags: ["organisation"], folder: "/Ressources Humaines" },
+  { id: "d9", name: "Devis_renovation.pdf", type: "pdf", size: "560 Ko", sizeBytes: 573440, modified: "5 Fév 2026", modifiedAt: now - 25200000, createdAt: now - 86400000 * 8, author: "Sophie Lemoine", status: "pending", version: "v1", tags: ["devis"], folder: "/Projets/Rénovation Paris" },
+  { id: "d10", name: "Plan_formation_2026.docx", type: "doc", size: "2.1 Mo", sizeBytes: 2202009, modified: "4 Fév 2026", modifiedAt: now - 28800000, createdAt: now - 86400000 * 6, author: "Pierre Martin", status: "pending", version: "v1", tags: ["formation"], folder: "/Ressources Humaines/Formations" },
+  { id: "d11", name: "Audit_sécurité.pdf", type: "pdf", size: "3.4 Mo", sizeBytes: 3565158, modified: "3 Fév 2026", modifiedAt: now - 32400000, createdAt: now - 86400000 * 4, author: "Luc Bernard", status: "pending", version: "v1", tags: ["audit", "sécurité"], folder: "/Projets" },
 ];
 
 const SEED_ACTIVITIES: ActivityEntry[] = [
@@ -98,9 +131,21 @@ const SEED_ACTIVITIES: ActivityEntry[] = [
   { id: "a5", userInitials: "LB", userName: "Luc Bernard", action: "a importé", target: "3 documents", time: "il y a 3h", timestamp: now - 10800000 },
 ];
 
+function insertFolder(tree: FolderNode[], parentPath: string | null, newNode: FolderNode): FolderNode[] {
+  if (parentPath === null) return [...tree, newNode];
+  return tree.map((n) => {
+    if (n.path === parentPath) {
+      return { ...n, children: [...(n.children || []), newNode] };
+    }
+    if (n.children) return { ...n, children: insertFolder(n.children, parentPath, newNode) };
+    return n;
+  });
+}
+
 export const useDocumentStore = create<DocumentStore>((set, get) => ({
   documents: SEED_DOCUMENTS,
   activities: SEED_ACTIVITIES,
+  folders: SEED_FOLDERS,
 
   addDocuments: (files, folder, author) => {
     const newDocs: DocFile[] = files.map((f) => {
@@ -114,6 +159,7 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
         sizeBytes: f.size,
         modified: new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }),
         modifiedAt: Date.now(),
+        createdAt: Date.now(),
         author,
         status: "draft" as const,
         version: "v1",
@@ -206,5 +252,25 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 
   getRecentActivities: (limit = 8) => {
     return get().activities.slice(0, limit);
+  },
+
+  createFolder: (parentPath, name, author) => {
+    const cleanName = name.trim();
+    const newPath = `${parentPath ?? ""}/${cleanName}`;
+    const newNode: FolderNode = { name: cleanName, path: newPath };
+    const activity: ActivityEntry = {
+      id: generateId(),
+      userInitials: getInitials(author),
+      userName: author,
+      action: "a créé le dossier",
+      target: cleanName,
+      time: "à l'instant",
+      timestamp: Date.now(),
+    };
+    set((state) => ({
+      folders: insertFolder(state.folders, parentPath, newNode),
+      activities: [activity, ...state.activities],
+    }));
+    return newPath;
   },
 }));
