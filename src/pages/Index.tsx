@@ -44,7 +44,7 @@ export default function Dashboard() {
   const [previewDoc, setPreviewDoc] = useState<DocFile | null>(null);
   const [rejectDoc, setRejectDoc] = useState<DocFile | null>(null);
   const { toast } = useToast();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const navigate = useNavigate();
 
   const {
@@ -58,6 +58,9 @@ export default function Dashboard() {
     documents,
     activities,
   } = useDocumentStore();
+
+  const authorName = profile?.username || "Utilisateur";
+  const authorId = user?.user_id || "";
 
   const recentDocs = getRecentDocuments(5);
   const pendingValidations = getPendingValidations();
@@ -77,28 +80,25 @@ export default function Dashboard() {
     { label: "Collaborateurs actifs", value: "42", icon: Users, change: "en ligne" },
   ];
 
-  const handleImport = (files: File[], folderPath: string) => {
-    const author = profile?.username || "Utilisateur";
-    addDocuments(files, folderPath, author);
+  const handleImport = async (files: File[], folderPath: string) => {
+    await addDocuments(files, folderPath, authorName, authorId);
     toast({
       title: "Import réussi",
       description: `${files.length} fichier(s) importé(s) dans ${folderPath}`,
     });
   };
 
-  const handleValidate = (id: string, approved: boolean) => {
-    const author = profile?.username || "Administrateur";
-    validateDocument(id, approved, author);
+  const handleValidate = async (id: string, approved: boolean) => {
+    await validateDocument(id, approved, authorName, authorId);
     toast({
       title: "Document validé",
       description: "Le document a été validé avec succès.",
     });
   };
 
-  const handleRejectConfirm = (reason: string) => {
+  const handleRejectConfirm = async (reason: string) => {
     if (!rejectDoc) return;
-    const author = profile?.username || "Administrateur";
-    validateDocument(rejectDoc.id, false, author);
+    await validateDocument(rejectDoc.id, false, authorName, authorId, reason);
     toast({
       title: "Document rejeté",
       description: `Motif : ${reason}`,
@@ -107,14 +107,9 @@ export default function Dashboard() {
   };
 
   const handlePreview = (doc: DocFile) => {
-    const author = profile?.username || "Utilisateur";
-    viewDocument(doc.id, author);
+    viewDocument(doc.id, authorName, authorId);
     setPreviewDoc(doc);
   };
-
-  const previewFile = previewDoc
-    ? { name: previewDoc.name, type: previewDoc.type, size: previewDoc.size, modified: previewDoc.modified, author: previewDoc.author, status: previewDoc.status, version: previewDoc.version, tags: previewDoc.tags }
-    : null;
 
   return (
     <div className="p-4 lg:p-6 space-y-6 animate-fade-in">
@@ -309,7 +304,7 @@ export default function Dashboard() {
       </div>
 
       <ImportDocumentsDialog open={importOpen} onOpenChange={setImportOpen} onImport={handleImport} />
-      <DocumentPreview open={!!previewDoc} onOpenChange={(open) => !open && setPreviewDoc(null)} file={previewFile} />
+      <DocumentPreview open={!!previewDoc} onOpenChange={(open) => !open && setPreviewDoc(null)} file={previewDoc} />
       <RejectReasonDialog
         open={!!rejectDoc}
         onOpenChange={(open) => !open && setRejectDoc(null)}
