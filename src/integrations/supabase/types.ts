@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      activities: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          target: string
+          user_id: string
+          user_initials: string
+          user_name: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          target: string
+          user_id: string
+          user_initials: string
+          user_name: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          target?: string
+          user_id?: string
+          user_initials?: string
+          user_name?: string
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -41,6 +71,87 @@ export type Database = {
           target?: string | null
           user_id?: string
           user_name?: string
+        }
+        Relationships: []
+      }
+      documents: {
+        Row: {
+          author_id: string
+          author_name: string
+          created_at: string
+          folder: string
+          id: string
+          name: string
+          reject_reason: string | null
+          size_bytes: number
+          status: string
+          storage_path: string | null
+          tags: string[]
+          type: string
+          updated_at: string
+          version: string
+        }
+        Insert: {
+          author_id: string
+          author_name: string
+          created_at?: string
+          folder?: string
+          id?: string
+          name: string
+          reject_reason?: string | null
+          size_bytes?: number
+          status?: string
+          storage_path?: string | null
+          tags?: string[]
+          type: string
+          updated_at?: string
+          version?: string
+        }
+        Update: {
+          author_id?: string
+          author_name?: string
+          created_at?: string
+          folder?: string
+          id?: string
+          name?: string
+          reject_reason?: string | null
+          size_bytes?: number
+          status?: string
+          storage_path?: string | null
+          tags?: string[]
+          type?: string
+          updated_at?: string
+          version?: string
+        }
+        Relationships: []
+      }
+      folders: {
+        Row: {
+          created_at: string
+          created_by: string
+          created_by_name: string
+          id: string
+          name: string
+          parent_path: string | null
+          path: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          created_by_name: string
+          id?: string
+          name: string
+          parent_path?: string | null
+          path: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          created_by_name?: string
+          id?: string
+          name?: string
+          parent_path?: string | null
+          path?: string
         }
         Relationships: []
       }
