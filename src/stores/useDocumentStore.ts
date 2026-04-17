@@ -33,7 +33,7 @@ interface DocumentStore {
   documents: DocFile[];
   activities: ActivityEntry[];
   addDocuments: (files: File[], folder: string, author: string) => void;
-  viewDocument: (id: string) => void;
+  viewDocument: (id: string, author: string) => void;
   validateDocument: (id: string, approved: boolean, author: string) => void;
   searchDocuments: (query: string) => DocFile[];
   getRecentDocuments: (limit?: number) => DocFile[];
