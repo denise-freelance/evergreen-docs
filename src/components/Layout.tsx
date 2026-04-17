@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -56,9 +56,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [headerSearch, setHeaderSearch] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
-  const { profile, isAdmin, signOut } = useAuth();
-  const { searchDocuments, documents, viewDocument } = useDocumentStore();
+  const { profile, isAdmin, signOut, user } = useAuth();
+  const { searchDocuments, documents, loadAll, loaded } = useDocumentStore();
   const headerResults = useMemo(() => searchDocuments(headerSearch), [headerSearch, documents]);
+
+  useEffect(() => {
+    if (user && !loaded) {
+      loadAll();
+    }
+  }, [user, loaded, loadAll]);
 
   const navItems = isAdmin ? [...baseNavItems, adminNavItem] : baseNavItems;
 
