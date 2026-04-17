@@ -45,4 +45,11 @@ export const authService = {
     if (!data.user) throw new Error("Non authentifié");
     return authService.fetchProfile(data.user.id);
   },
+
+  async registerUser(payload: { email: string; password: string; username: string; role: string; group_id: string }) {
+    const { data, error } = await supabase.functions.invoke("admin-register-user", { body: payload });
+    if (error) throw new Error(error.message);
+    if (data?.error) throw new Error(data.error);
+    return data;
+  },
 };
