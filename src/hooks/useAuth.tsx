@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { authService, AuthUser } from "@/services/auth.service";
 
 interface AuthContextType {
@@ -22,20 +23,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("auth_token");
-    if (token) {
-      authService.me()
-        .then((userData) => {
-          setUser(userData);
-        })
-        .catch(() => {
-          localStorage.removeItem("auth_token");
-          setUser(null);
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+    // Subscribe first to avoid race conditions
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        // Defer profile fetch to avoid deadlocks
+        setTimeout(() => {
+          authService.fetchProfile(session.user.id)
+            .then(setUser)
+            .catch(() => setUser(null));
+        }, 0);
+      } else {
+        setUser(null);
+      }
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        authService.fetchProfile(session.user.id)
+          .then(setUser)
+          .catch(() => setUser(null))
+          .finally(() => setLoading(false));
+      } else {
+        setLoading(false);
+      }
+    });
+
+    return () => sub.subscription.unsubscribe();
   }, []);
 
   const signOut = async () => {
