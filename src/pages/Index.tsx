@@ -107,7 +107,8 @@ export default function Dashboard() {
   };
 
   const handlePreview = (doc: DocFile) => {
-    viewDocument(doc.id);
+    const author = profile?.username || "Utilisateur";
+    viewDocument(doc.id, author);
     setPreviewDoc(doc);
   };
 
