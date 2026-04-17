@@ -123,8 +123,9 @@ function TreeItem({
 
 export default function Documents() {
   const { documents, folders, addDocuments, viewDocument, createFolder } = useDocumentStore();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const author = profile?.username || "Utilisateur";
+  const authorId = user?.user_id || "";
 
   const [currentFolder, setCurrentFolder] = useState<string | null>(null); // null = all
   const [folderQuery, setFolderQuery] = useState("");
@@ -180,25 +181,25 @@ export default function Documents() {
     return parts.map((p, i) => ({ name: p, path: "/" + parts.slice(0, i + 1).join("/") }));
   }, [currentFolder]);
 
-  const handleImport = (importedFiles: File[], folderPath: string) => {
-    addDocuments(importedFiles, folderPath, author);
+  const handleImport = async (importedFiles: File[], folderPath: string) => {
+    await addDocuments(importedFiles, folderPath, author, authorId);
     toast({ title: "Import réussi", description: `${importedFiles.length} fichier(s) importé(s) dans ${folderPath}` });
   };
 
   const handlePreview = (file: DocFile) => {
     setSelectedFile(file);
-    viewDocument(file.id, author);
+    viewDocument(file.id, author, authorId);
     setPreviewOpen(true);
   };
 
-  const handleCreateFolder = (parentPath: string | null, name: string, sub: string | null, files: File[]) => {
-    const folderPath = createFolder(parentPath, name, author);
+  const handleCreateFolder = async (parentPath: string | null, name: string, sub: string | null, files: File[]) => {
+    const folderPath = await createFolder(parentPath, name, author, authorId);
     let targetPath = folderPath;
     if (sub) {
-      targetPath = createFolder(folderPath, sub, author);
+      targetPath = await createFolder(folderPath, sub, author, authorId);
     }
     if (files.length > 0) {
-      addDocuments(files, targetPath, author);
+      await addDocuments(files, targetPath, author, authorId);
     }
     setCurrentFolder(targetPath);
     toast({
