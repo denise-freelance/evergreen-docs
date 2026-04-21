@@ -194,7 +194,7 @@ export default function ShareModal({ open, onOpenChange, documentId, documentNam
             document_id: documentId,
             password_hash: passwordHash,
             expires_at: expires,
-            created_by: user.id,
+            created_by: user.user_id,
             created_by_name: user.username,
           })
           .select()
