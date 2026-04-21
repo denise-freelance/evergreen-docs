@@ -74,6 +74,72 @@ export type Database = {
         }
         Relationships: []
       }
+      document_public_links: {
+        Row: {
+          created_at: string
+          created_by: string
+          created_by_name: string
+          document_id: string
+          expires_at: string | null
+          id: string
+          password_hash: string | null
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          created_by_name: string
+          document_id: string
+          expires_at?: string | null
+          id?: string
+          password_hash?: string | null
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          created_by_name?: string
+          document_id?: string
+          expires_at?: string | null
+          id?: string
+          password_hash?: string | null
+          token?: string
+        }
+        Relationships: []
+      }
+      document_shares: {
+        Row: {
+          created_at: string
+          created_by: string
+          created_by_name: string
+          document_id: string
+          id: string
+          permission: string
+          shared_with_name: string
+          shared_with_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          created_by_name: string
+          document_id: string
+          id?: string
+          permission?: string
+          shared_with_name: string
+          shared_with_user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          created_by_name?: string
+          document_id?: string
+          id?: string
+          permission?: string
+          shared_with_name?: string
+          shared_with_user_id?: string
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           author_id: string
