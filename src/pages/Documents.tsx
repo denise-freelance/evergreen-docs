@@ -491,7 +491,7 @@ export default function Documents() {
         </div>
       )}
 
-      <ShareModal open={shareOpen} onOpenChange={setShareOpen} documentName={selectedFile?.name} />
+      <ShareModal open={shareOpen} onOpenChange={setShareOpen} documentId={selectedFile?.id} documentName={selectedFile?.name} />
       <DocumentPreview open={previewOpen} onOpenChange={setPreviewOpen} file={selectedFile} />
       <ImportDocumentsDialog open={importOpen} onOpenChange={setImportOpen} onImport={handleImport} folders={folders} />
       <NewFolderDialog open={newFolderOpen} onOpenChange={setNewFolderOpen} folders={folders} onCreate={handleCreateFolder} />
