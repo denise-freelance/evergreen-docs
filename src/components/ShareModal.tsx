@@ -133,7 +133,7 @@ export default function ShareModal({ open, onOpenChange, documentId, documentNam
         shared_with_user_id: profile.user_id,
         shared_with_name: profile.username,
         permission,
-        created_by: user.id,
+        created_by: user.user_id,
         created_by_name: user.username,
       })
       .select()
