@@ -60,7 +60,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Create user with admin API (sends confirmation email)
+    // Create user with admin API
+    let userId: string | null = null;
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
       password,
@@ -68,28 +69,82 @@ Deno.serve(async (req) => {
     });
 
     if (createError) {
-      return new Response(JSON.stringify({ error: createError.message }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      // If user already exists in auth but has no profile (orphan), recover by finding & reusing it
+      const msg = (createError.message || "").toLowerCase();
+      const alreadyExists = msg.includes("already") || msg.includes("registered") || msg.includes("exists");
+      if (!alreadyExists) {
+        return new Response(JSON.stringify({ error: createError.message }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Look up existing auth user by email
+      const { data: list, error: listErr } = await adminClient.auth.admin.listUsers();
+      if (listErr) {
+        return new Response(JSON.stringify({ error: listErr.message }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const existing = list.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+      if (!existing) {
+        return new Response(JSON.stringify({ error: "Un utilisateur avec cet email existe déjà." }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Check if a profile already exists for this auth user
+      const { data: existingProfile } = await adminClient
+        .from("profiles")
+        .select("id")
+        .eq("user_id", existing.id)
+        .maybeSingle();
+
+      if (existingProfile) {
+        return new Response(JSON.stringify({ error: "Un utilisateur avec cet email est déjà enregistré." }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Orphan auth user — reset its password and reuse
+      await adminClient.auth.admin.updateUserById(existing.id, { password });
+      userId = existing.id;
+    } else {
+      userId = newUser.user.id;
     }
 
     // Create profile
-    await adminClient.from("profiles").insert({
-      user_id: newUser.user.id,
+    const { error: profileError } = await adminClient.from("profiles").insert({
+      user_id: userId,
       username,
       email,
       group_id,
       is_active: false,
     });
+    if (profileError) {
+      return new Response(JSON.stringify({ error: `Profil: ${profileError.message}` }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    // Create role
-    await adminClient.from("user_roles").insert({
-      user_id: newUser.user.id,
+    // Create role (upsert-like: delete then insert to avoid duplicates)
+    await adminClient.from("user_roles").delete().eq("user_id", userId);
+    const { error: roleError } = await adminClient.from("user_roles").insert({
+      user_id: userId,
       role,
     });
+    if (roleError) {
+      return new Response(JSON.stringify({ error: `Rôle: ${roleError.message}` }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    return new Response(JSON.stringify({ success: true, user_id: newUser.user.id }), {
+    return new Response(JSON.stringify({ success: true, user_id: userId }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
