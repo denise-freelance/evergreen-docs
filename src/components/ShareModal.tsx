@@ -104,12 +104,12 @@ export default function ShareModal({ open, onOpenChange, documentId, documentNam
       const { data } = await supabase
         .from("profiles")
         .select("user_id, username, email")
-        .or(`username.ilike.%${q}%,email.ilike.%${q}%`)
-        .limit(8);
-      if (cancelled) return;
-      const filtered = (data || []).filter(
-        (p) => p.user_id !== user?.id && !shares.some((s) => s.shared_with_user_id === p.user_id)
-      );
+      .or(`username.ilike.%${q}%,email.ilike.%${q}%`)
+      .limit(8);
+    if (cancelled) return;
+    const filtered = (data || []).filter(
+      (p) => p.user_id !== user?.user_id && !shares.some((s) => s.shared_with_user_id === p.user_id)
+    );
       setSuggestions(filtered as ProfileSuggestion[]);
       setSearching(false);
     }, 200);
@@ -133,7 +133,7 @@ export default function ShareModal({ open, onOpenChange, documentId, documentNam
         shared_with_user_id: profile.user_id,
         shared_with_name: profile.username,
         permission,
-        created_by: user.id,
+        created_by: user.user_id,
         created_by_name: user.username,
       })
       .select()
@@ -194,7 +194,7 @@ export default function ShareModal({ open, onOpenChange, documentId, documentNam
             document_id: documentId,
             password_hash: passwordHash,
             expires_at: expires,
-            created_by: user.id,
+            created_by: user.user_id,
             created_by_name: user.username,
           })
           .select()
