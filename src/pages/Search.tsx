@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Search as SearchIcon,
   FileText,
@@ -31,19 +31,9 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-
-const allDocuments = [
-  { name: "Contrat Partenariat Alpha 2025.pdf", type: "pdf", excerpt: "...selon les termes du contrat de partenariat établi en...", date: "2025-01-15", author: "Marie Curie", tags: ["contrat", "partenariat"] },
-  { name: "Budget Prévisionnel.xlsx", type: "xlsx", excerpt: "...prévisions financières pour le Q1 et Q2 de l'année...", date: "2025-02-01", author: "Pierre Martin", tags: ["budget", "finance"] },
-  { name: "Note de service - Télétravail.docx", type: "doc", excerpt: "...nouvelle politique de télétravail applicable à partir du...", date: "2024-12-10", author: "Sophie Lemoine", tags: ["RH", "politique"] },
-  { name: "Projet Alpha - Spécifications.pdf", type: "pdf", excerpt: "...détails techniques concernant l'architecture du projet...", date: "2025-01-20", author: "Luc Bernard", tags: ["technique", "projet"] },
-  { name: "Compte rendu réunion 12/01.txt", type: "doc", excerpt: "...points abordés lors de la réunion hebdomadaire...", date: "2025-01-12", author: "Jean Dupont", tags: ["réunion", "CR"] },
-  { name: "Rapport Q4 2025.pdf", type: "pdf", excerpt: "...résultats financiers du quatrième trimestre montrent une croissance...", date: "2026-02-13", author: "Marie Curie", tags: ["rapport", "Q4"] },
-  { name: "Facture_02_2026.pdf", type: "pdf", excerpt: "...montant total dû pour les prestations réalisées en...", date: "2026-02-08", author: "Marie Curie", tags: ["facture"] },
-  { name: "Photo_chantier_03.jpg", type: "image", excerpt: "...photo du chantier de rénovation, vue extérieure...", date: "2026-02-11", author: "Sophie Lemoine", tags: ["chantier", "photo"] },
-  { name: "Plan_formation.pptx", type: "doc", excerpt: "...plan de développement des compétences pour 2026...", date: "2026-02-07", author: "Pierre Martin", tags: ["formation", "RH"] },
-  { name: "Organigramme.png", type: "image", excerpt: "...organigramme mis à jour de la direction générale...", date: "2026-02-06", author: "Sophie Lemoine", tags: ["organisation"] },
-];
+import { useDocumentStore } from "@/stores/useDocumentStore";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const fileTypeLabels: Record<string, string> = {
   pdf: "PDF",
@@ -67,8 +57,6 @@ const dateOptions = [
   { value: "1y", label: "Cette année" },
 ];
 
-const owners = ["Marie Curie", "Pierre Martin", "Sophie Lemoine", "Luc Bernard", "Jean Dupont"];
-
 function FilterSection({ title, icon: Icon, defaultOpen = true, children }: { title: string; icon: any; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
@@ -88,11 +76,56 @@ function FilterSection({ title, icon: Icon, defaultOpen = true, children }: { ti
 }
 
 export default function Search() {
+  const { documents, loaded, loadAll } = useDocumentStore();
+  const { user, isAdmin } = useAuth();
+  const authorId = user?.user_id || "";
+  const groupName = user?.group_name || null;
+
   const [query, setQuery] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [dateFilter, setDateFilter] = useState("all");
   const [selectedOwners, setSelectedOwners] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState("pertinence");
+  const [sharedDocIds, setSharedDocIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!loaded) loadAll();
+  }, [loaded, loadAll]);
+
+  useEffect(() => {
+    if (!authorId || isAdmin) {
+      setSharedDocIds(new Set());
+      return;
+    }
+    supabase
+      .from("document_shares")
+      .select("document_id")
+      .eq("shared_with_user_id", authorId)
+      .then(({ data }) => setSharedDocIds(new Set((data || []).map((r) => r.document_id))));
+  }, [authorId, isAdmin]);
+
+  // Apply same access control as Documents.tsx
+  const accessibleDocs = useMemo(() => {
+    if (isAdmin) return documents;
+    const groupRoot = groupName ? `/${groupName}` : null;
+    return documents.filter((d) => {
+      if (d.authorId === authorId) return true;
+      if (sharedDocIds.has(d.id)) return true;
+      if (groupRoot && (d.folder === groupRoot || d.folder.startsWith(groupRoot + "/"))) return true;
+      return false;
+    });
+  }, [documents, isAdmin, groupName, authorId, sharedDocIds]);
+
+  const owners = useMemo(
+    () => Array.from(new Set(accessibleDocs.map((d) => d.author))).sort(),
+    [accessibleDocs]
+  );
+
+  const allTags = useMemo(
+    () => Array.from(new Set(accessibleDocs.flatMap((d) => d.tags))).sort(),
+    [accessibleDocs]
+  );
 
   const toggleType = (type: string) => {
     setSelectedTypes((prev) =>
@@ -106,23 +139,31 @@ export default function Search() {
     );
   };
 
+  const toggleTag = (tag: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
   const resetFilters = () => {
     setSelectedTypes([]);
     setDateFilter("all");
     setSelectedOwners([]);
+    setSelectedTags([]);
   };
 
-  const hasFilters = selectedTypes.length > 0 || dateFilter !== "all" || selectedOwners.length > 0;
+  const hasFilters =
+    selectedTypes.length > 0 || dateFilter !== "all" || selectedOwners.length > 0 || selectedTags.length > 0;
 
   const results = useMemo(() => {
-    let filtered = allDocuments;
+    let filtered = accessibleDocs;
 
     if (query.trim()) {
       const q = query.toLowerCase();
       filtered = filtered.filter(
         (d) =>
           d.name.toLowerCase().includes(q) ||
-          d.excerpt.toLowerCase().includes(q) ||
+          d.author.toLowerCase().includes(q) ||
           d.tags.some((t) => t.toLowerCase().includes(q))
       );
     }
@@ -134,22 +175,26 @@ export default function Search() {
     if (dateFilter !== "all") {
       const now = new Date();
       const days = dateFilter === "7d" ? 7 : dateFilter === "30d" ? 30 : dateFilter === "90d" ? 90 : 365;
-      const cutoff = new Date(now.getTime() - days * 86400000);
-      filtered = filtered.filter((d) => new Date(d.date) >= cutoff);
+      const cutoff = now.getTime() - days * 86400000;
+      filtered = filtered.filter((d) => d.modifiedAt >= cutoff);
     }
 
     if (selectedOwners.length > 0) {
       filtered = filtered.filter((d) => selectedOwners.includes(d.author));
     }
 
+    if (selectedTags.length > 0) {
+      filtered = filtered.filter((d) => d.tags.some((t) => selectedTags.includes(t)));
+    }
+
     if (sortBy === "date") {
-      filtered = [...filtered].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      filtered = [...filtered].sort((a, b) => b.modifiedAt - a.modifiedAt);
     } else if (sortBy === "nom") {
       filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
     }
 
     return filtered;
-  }, [query, selectedTypes, dateFilter, selectedOwners, sortBy]);
+  }, [accessibleDocs, query, selectedTypes, dateFilter, selectedOwners, selectedTags, sortBy]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] animate-fade-in">
@@ -159,7 +204,7 @@ export default function Search() {
         <div className="relative max-w-2xl">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Rechercher des documents, du contenu, des tags..."
+            placeholder="Rechercher des documents, auteurs, tags..."
             className="pl-10 h-11 text-sm bg-secondary border-0 focus-visible:ring-1 focus-visible:ring-accent"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -228,15 +273,19 @@ export default function Search() {
 
             <FilterSection title="Propriétaire" icon={User} defaultOpen={false}>
               <div className="space-y-2 pl-1">
-                {owners.map((owner) => (
-                  <label key={owner} className="flex items-center gap-2.5 text-sm cursor-pointer hover:text-foreground text-foreground/80">
-                    <Checkbox
-                      checked={selectedOwners.includes(owner)}
-                      onCheckedChange={() => toggleOwner(owner)}
-                    />
-                    {owner}
-                  </label>
-                ))}
+                {owners.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Aucun propriétaire</p>
+                ) : (
+                  owners.map((owner) => (
+                    <label key={owner} className="flex items-center gap-2.5 text-sm cursor-pointer hover:text-foreground text-foreground/80">
+                      <Checkbox
+                        checked={selectedOwners.includes(owner)}
+                        onCheckedChange={() => toggleOwner(owner)}
+                      />
+                      {owner}
+                    </label>
+                  ))
+                )}
               </div>
             </FilterSection>
 
@@ -244,11 +293,20 @@ export default function Search() {
 
             <FilterSection title="Tags" icon={Tag} defaultOpen={false}>
               <div className="flex flex-wrap gap-1.5">
-                {["contrat", "budget", "RH", "technique", "rapport", "facture", "formation"].map((tag) => (
-                  <Badge key={tag} variant="secondary" className="text-[10px] cursor-pointer hover:bg-accent/20">
-                    {tag}
-                  </Badge>
-                ))}
+                {allTags.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Aucun tag</p>
+                ) : (
+                  allTags.map((tag) => (
+                    <Badge
+                      key={tag}
+                      variant={selectedTags.includes(tag) ? "default" : "secondary"}
+                      className="text-[10px] cursor-pointer hover:bg-accent/20"
+                      onClick={() => toggleTag(tag)}
+                    >
+                      {tag}
+                    </Badge>
+                  ))
+                )}
               </div>
             </FilterSection>
           </ScrollArea>
@@ -290,7 +348,7 @@ export default function Search() {
                   const Icon = fileIcons[doc.type] || File;
                   return (
                     <div
-                      key={doc.name}
+                      key={doc.id}
                       className="flex items-start gap-4 p-4 rounded-xl border border-border bg-card hover:shadow-card-hover hover:border-border/80 transition-all cursor-pointer"
                     >
                       <div className="rounded-lg bg-secondary p-2.5 shrink-0">
@@ -298,11 +356,13 @@ export default function Search() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-foreground truncate">{doc.name}</p>
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{doc.excerpt}</p>
-                        <div className="flex items-center gap-3 mt-2">
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                          {doc.folder} · {doc.size} · {doc.version}
+                        </p>
+                        <div className="flex items-center gap-3 mt-2 flex-wrap">
                           <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                             <CalendarDays className="h-3 w-3" />
-                            {doc.date}
+                            {doc.modified}
                           </span>
                           <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                             <Tag className="h-3 w-3" />
@@ -312,6 +372,9 @@ export default function Search() {
                             <User className="h-3 w-3" />
                             {doc.author}
                           </span>
+                          {doc.tags.slice(0, 3).map((t) => (
+                            <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>
+                          ))}
                         </div>
                       </div>
                     </div>
