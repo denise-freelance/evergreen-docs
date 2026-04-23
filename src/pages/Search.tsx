@@ -117,10 +117,8 @@ export default function Search() {
     });
   }, [documents, isAdmin, groupName, authorId, sharedDocIds]);
 
-  const owners = useMemo(
-    () => Array.from(new Set(accessibleDocs.map((d) => d.author))).sort(),
-    [accessibleDocs]
-  );
+  // Owners list: only those appearing in current filtered results, excluding the current user
+  const currentUserName = user?.username || "";
 
   const allTags = useMemo(
     () => Array.from(new Set(accessibleDocs.flatMap((d) => d.tags))).sort(),
