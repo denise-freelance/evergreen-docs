@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Folder,
   FileText,
@@ -123,13 +124,15 @@ function TreeItem({
 
 export default function Documents() {
   const { documents, folders, addDocuments, viewDocument, createFolder } = useDocumentStore();
-  const { profile, user } = useAuth();
+  const { profile, user, isAdmin } = useAuth();
   const author = profile?.username || "Utilisateur";
   const authorId = user?.user_id || "";
+  const groupName = user?.group_name || null;
 
   const [currentFolder, setCurrentFolder] = useState<string | null>(null); // null = all
   const [folderQuery, setFolderQuery] = useState("");
   const [filters, setFilters] = useState<DocumentFilters>(defaultFilters);
+  const [sharedDocIds, setSharedDocIds] = useState<Set<string>>(new Set());
 
   const [selectedFile, setSelectedFile] = useState<DocFile | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "grid" | "columns">("list");
@@ -140,15 +143,43 @@ export default function Documents() {
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const { toast } = useToast();
 
-  // Folder tree (filtered by search input)
-  const visibleTree = useMemo(() => filterTree(folders, folderQuery), [folders, folderQuery]);
+  // Load shared document IDs for current user
+  useEffect(() => {
+    if (!authorId || isAdmin) return;
+    supabase
+      .from("document_shares")
+      .select("document_id")
+      .eq("shared_with_user_id", authorId)
+      .then(({ data }) => setSharedDocIds(new Set((data || []).map((r) => r.document_id))));
+  }, [authorId, isAdmin]);
+
+  // Folder tree filtered by group access (admin sees all)
+  const accessibleFolders = useMemo(() => {
+    if (isAdmin) return folders;
+    if (!groupName) return [];
+    return folders.filter((root) => root.name === groupName);
+  }, [folders, isAdmin, groupName]);
+
+  const visibleTree = useMemo(() => filterTree(accessibleFolders, folderQuery), [accessibleFolders, folderQuery]);
   const treeOpenAll = folderQuery.trim().length > 0;
+
+  // Documents accessible to user: those in their group folder + those shared with them. Admin sees all.
+  const accessibleDocs = useMemo(() => {
+    if (isAdmin) return documents;
+    const groupRoot = groupName ? `/${groupName}` : null;
+    return documents.filter((d) => {
+      if (d.authorId === authorId) return true;
+      if (sharedDocIds.has(d.id)) return true;
+      if (groupRoot && (d.folder === groupRoot || d.folder.startsWith(groupRoot + "/"))) return true;
+      return false;
+    });
+  }, [documents, isAdmin, groupName, authorId, sharedDocIds]);
 
   // Documents in current folder (or all subfolders)
   const folderDocs = useMemo(() => {
-    if (!currentFolder) return documents;
-    return documents.filter((d) => d.folder === currentFolder || d.folder.startsWith(currentFolder + "/"));
-  }, [documents, currentFolder]);
+    if (!currentFolder) return accessibleDocs;
+    return accessibleDocs.filter((d) => d.folder === currentFolder || d.folder.startsWith(currentFolder + "/"));
+  }, [accessibleDocs, currentFolder]);
 
   const authors = useMemo(() => Array.from(new Set(documents.map((d) => d.author))).sort(), [documents]);
 

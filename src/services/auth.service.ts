@@ -7,6 +7,7 @@ export interface AuthUser {
   username: string;
   is_active: boolean;
   group_id: string | null;
+  group_name: string | null;
   role: string;
 }
 
@@ -29,6 +30,11 @@ export const authService = {
       supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
     ]);
     if (!profile) throw new Error("Profil introuvable.");
+    let groupName: string | null = null;
+    if (profile.group_id) {
+      const { data: g } = await supabase.from("groups").select("name").eq("id", profile.group_id).maybeSingle();
+      groupName = g?.name ?? null;
+    }
     return {
       id: profile.id,
       user_id: profile.user_id,
@@ -36,6 +42,7 @@ export const authService = {
       username: profile.username,
       is_active: profile.is_active,
       group_id: profile.group_id,
+      group_name: groupName,
       role: roleRow?.role || "reader",
     };
   },
