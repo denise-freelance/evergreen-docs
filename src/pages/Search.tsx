@@ -117,10 +117,8 @@ export default function Search() {
     });
   }, [documents, isAdmin, groupName, authorId, sharedDocIds]);
 
-  const owners = useMemo(
-    () => Array.from(new Set(accessibleDocs.map((d) => d.author))).sort(),
-    [accessibleDocs]
-  );
+  // Owners list: only those appearing in current filtered results, excluding the current user
+  const currentUserName = user?.username || "";
 
   const allTags = useMemo(
     () => Array.from(new Set(accessibleDocs.flatMap((d) => d.tags))).sort(),
@@ -155,7 +153,8 @@ export default function Search() {
   const hasFilters =
     selectedTypes.length > 0 || dateFilter !== "all" || selectedOwners.length > 0 || selectedTags.length > 0;
 
-  const results = useMemo(() => {
+  // Filter without owner constraint, used to compute available owners
+  const resultsBeforeOwner = useMemo(() => {
     let filtered = accessibleDocs;
 
     if (query.trim()) {
@@ -179,12 +178,27 @@ export default function Search() {
       filtered = filtered.filter((d) => d.modifiedAt >= cutoff);
     }
 
-    if (selectedOwners.length > 0) {
-      filtered = filtered.filter((d) => selectedOwners.includes(d.author));
-    }
-
     if (selectedTags.length > 0) {
       filtered = filtered.filter((d) => d.tags.some((t) => selectedTags.includes(t)));
+    }
+
+    return filtered;
+  }, [accessibleDocs, query, selectedTypes, dateFilter, selectedTags]);
+
+  // Owners derived from filtered results, excluding the current user
+  const owners = useMemo(
+    () =>
+      Array.from(new Set(resultsBeforeOwner.map((d) => d.author)))
+        .filter((name) => name && name !== currentUserName)
+        .sort(),
+    [resultsBeforeOwner, currentUserName]
+  );
+
+  const results = useMemo(() => {
+    let filtered = resultsBeforeOwner;
+
+    if (selectedOwners.length > 0) {
+      filtered = filtered.filter((d) => selectedOwners.includes(d.author));
     }
 
     if (sortBy === "date") {
@@ -194,7 +208,7 @@ export default function Search() {
     }
 
     return filtered;
-  }, [accessibleDocs, query, selectedTypes, dateFilter, selectedOwners, selectedTags, sortBy]);
+  }, [resultsBeforeOwner, selectedOwners, sortBy]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] animate-fade-in">
