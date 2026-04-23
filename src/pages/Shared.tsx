@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   FileText,
   FileSpreadsheet,
@@ -33,25 +33,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
-const sharedDocuments = [
-  { name: "Rapport Q4 2025.pdf", type: "pdf", size: "2.4 Mo", sharedDate: "14 Fév 2026", sharedBy: "Marie Curie", initials: "MC", permission: "edit", folder: "Comptabilité", tags: ["rapport", "Q4"] },
-  { name: "Budget_previsionnel.xlsx", type: "xlsx", size: "890 Ko", sharedDate: "13 Fév 2026", sharedBy: "Pierre Martin", initials: "PM", permission: "read", folder: "Comptabilité", tags: ["budget"] },
-  { name: "Plan_formation.pptx", type: "doc", size: "12.3 Mo", sharedDate: "12 Fév 2026", sharedBy: "Sophie Lemoine", initials: "SL", permission: "comment", folder: "Ressources Humaines", tags: ["formation", "RH"] },
-  { name: "Contrat_fournisseur.pdf", type: "pdf", size: "1.2 Mo", sharedDate: "11 Fév 2026", sharedBy: "Luc Bernard", initials: "LB", permission: "read", folder: "Projets", tags: ["contrat", "juridique"] },
-  { name: "Specs_techniques.docx", type: "doc", size: "3.7 Mo", sharedDate: "10 Fév 2026", sharedBy: "Marie Curie", initials: "MC", permission: "edit", folder: "Projets", tags: ["technique"] },
-  { name: "Photo_chantier_03.jpg", type: "image", size: "5.1 Mo", sharedDate: "9 Fév 2026", sharedBy: "Pierre Martin", initials: "PM", permission: "read", folder: "Projets", tags: ["chantier", "photo"] },
-  { name: "Facture_02_2026.pdf", type: "pdf", size: "145 Ko", sharedDate: "8 Fév 2026", sharedBy: "Sophie Lemoine", initials: "SL", permission: "comment", folder: "Comptabilité", tags: ["facture"] },
-  { name: "Organigramme.png", type: "image", size: "780 Ko", sharedDate: "7 Fév 2026", sharedBy: "Luc Bernard", initials: "LB", permission: "read", folder: "Ressources Humaines", tags: ["organisation"] },
-  { name: "Cahier_des_charges_v2.pdf", type: "pdf", size: "4.5 Mo", sharedDate: "6 Fév 2026", sharedBy: "Marie Curie", initials: "MC", permission: "edit", folder: "Projets", tags: ["CDC", "technique"] },
-  { name: "Présentation_client.pptx", type: "doc", size: "8.9 Mo", sharedDate: "5 Fév 2026", sharedBy: "Pierre Martin", initials: "PM", permission: "comment", folder: "Projets", tags: ["présentation"] },
-];
+interface SharedDoc {
+  shareId: string;
+  documentId: string;
+  name: string;
+  type: string;
+  size: string;
+  sharedDate: string;
+  sharedBy: string;
+  initials: string;
+  permission: string;
+  folder: string;
+  tags: string[];
+}
 
 const fileIcons: Record<string, any> = {
   pdf: FileText,
   xlsx: FileSpreadsheet,
+  xls: FileSpreadsheet,
   image: FileImage,
+  jpg: FileImage,
+  jpeg: FileImage,
+  png: FileImage,
   doc: File,
+  docx: File,
+  pptx: File,
 };
 
 const permissionLabels: Record<string, string> = {
@@ -68,16 +77,87 @@ const permissionColors: Record<string, string> = {
   owner: "bg-accent/10 text-accent border-accent/20",
 };
 
+function formatBytes(bytes: number) {
+  if (!bytes) return "—";
+  const u = ["o", "Ko", "Mo", "Go"];
+  let i = 0;
+  let n = bytes;
+  while (n >= 1024 && i < u.length - 1) {
+    n /= 1024;
+    i++;
+  }
+  return `${n.toFixed(n < 10 && i > 0 ? 1 : 0)} ${u[i]}`;
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function getInitials(name: string) {
+  return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+}
+
 export default function Shared() {
-  const [selectedDoc, setSelectedDoc] = useState<typeof sharedDocuments[0] | null>(null);
+  const { user } = useAuth();
+  const [docs, setDocs] = useState<SharedDoc[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedDoc, setSelectedDoc] = useState<SharedDoc | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPermission, setFilterPermission] = useState("all");
   const [sortBy, setSortBy] = useState("date");
   const [detailOpen, setDetailOpen] = useState(false);
 
-  const filtered = sharedDocuments
+  useEffect(() => {
+    if (!user?.user_id) return;
+    (async () => {
+      setLoading(true);
+      const { data: shares } = await supabase
+        .from("document_shares")
+        .select("*")
+        .eq("shared_with_user_id", user.user_id)
+        .order("created_at", { ascending: false });
+
+      if (!shares || shares.length === 0) {
+        setDocs([]);
+        setLoading(false);
+        return;
+      }
+
+      const docIds = shares.map((s) => s.document_id);
+      const { data: documents } = await supabase
+        .from("documents")
+        .select("*")
+        .in("id", docIds);
+
+      const docMap = new Map((documents || []).map((d) => [d.id, d]));
+      const merged: SharedDoc[] = shares
+        .filter((s) => docMap.has(s.document_id))
+        .map((s) => {
+          const d = docMap.get(s.document_id)!;
+          return {
+            shareId: s.id,
+            documentId: s.document_id,
+            name: d.name,
+            type: d.type,
+            size: formatBytes(d.size_bytes || 0),
+            sharedDate: formatDate(s.created_at),
+            sharedBy: s.created_by_name,
+            initials: getInitials(s.created_by_name),
+            permission: s.permission,
+            folder: d.folder || "/",
+            tags: d.tags || [],
+          };
+        });
+
+      setDocs(merged);
+      setLoading(false);
+    })();
+  }, [user?.user_id]);
+
+  const filtered = docs
     .filter((doc) => {
-      const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      const matchesSearch =
+        doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         doc.sharedBy.toLowerCase().includes(searchQuery.toLowerCase()) ||
         doc.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesPermission = filterPermission === "all" || doc.permission === filterPermission;
@@ -86,17 +166,16 @@ export default function Shared() {
     .sort((a, b) => {
       if (sortBy === "name") return a.name.localeCompare(b.name);
       if (sortBy === "sender") return a.sharedBy.localeCompare(b.sharedBy);
-      return 0; // date – already sorted
+      return 0;
     });
 
-  // Group by sender for the "Par personne" tab
-  const groupedBySender = filtered.reduce<Record<string, typeof sharedDocuments>>((acc, doc) => {
+  const groupedBySender = filtered.reduce<Record<string, SharedDoc[]>>((acc, doc) => {
     if (!acc[doc.sharedBy]) acc[doc.sharedBy] = [];
     acc[doc.sharedBy].push(doc);
     return acc;
   }, {});
 
-  const handleSelect = (doc: typeof sharedDocuments[0]) => {
+  const handleSelect = (doc: SharedDoc) => {
     setSelectedDoc(doc);
     setDetailOpen(true);
   };
@@ -105,9 +184,7 @@ export default function Shared() {
 
   return (
     <div className="flex h-[calc(100vh-4rem)] animate-fade-in">
-      {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
         <div className="p-4 lg:p-6 border-b border-border bg-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="rounded-lg bg-accent/10 p-2">
@@ -115,11 +192,12 @@ export default function Shared() {
             </div>
             <div>
               <h1 className="text-lg font-bold text-foreground">Partagés avec moi</h1>
-              <p className="text-xs text-muted-foreground">{sharedDocuments.length} documents partagés</p>
+              <p className="text-xs text-muted-foreground">
+                {loading ? "Chargement..." : `${docs.length} document${docs.length > 1 ? "s" : ""} partagé${docs.length > 1 ? "s" : ""}`}
+              </p>
             </div>
           </div>
 
-          {/* Search + filters */}
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -156,7 +234,6 @@ export default function Shared() {
           </div>
         </div>
 
-        {/* Tabs: Tous / Par personne */}
         <Tabs defaultValue="all" className="flex-1 flex flex-col min-h-0">
           <div className="px-4 lg:px-6 pt-3">
             <TabsList className="bg-secondary">
@@ -169,32 +246,30 @@ export default function Shared() {
             </TabsList>
           </div>
 
-          {/* All documents */}
           <TabsContent value="all" className="flex-1 min-h-0 mt-0">
             <ScrollArea className="h-full">
               <div className="px-4 lg:px-6 pb-6">
-                {/* List header */}
                 <div className="hidden sm:grid grid-cols-[1fr_140px_120px_100px] gap-2 px-3 py-2 mt-2 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground border-b border-border">
                   <span>Document</span>
                   <span>Partagé par</span>
                   <span>Date</span>
                   <span>Permission</span>
                 </div>
-                {filtered.length === 0 && (
+                {!loading && filtered.length === 0 && (
                   <div className="text-center py-12 text-muted-foreground">
                     <Share2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                    <p className="text-sm font-medium">Aucun document trouvé</p>
-                    <p className="text-xs mt-1">Essayez de modifier vos filtres</p>
+                    <p className="text-sm font-medium">Aucun document partagé</p>
+                    <p className="text-xs mt-1">Les documents partagés avec vous apparaîtront ici</p>
                   </div>
                 )}
                 {filtered.map((doc) => {
                   const Icon = fileIcons[doc.type] || File;
                   return (
                     <div
-                      key={doc.name}
+                      key={doc.shareId}
                       onClick={() => handleSelect(doc)}
                       className={`grid grid-cols-1 sm:grid-cols-[1fr_140px_120px_100px] gap-1 sm:gap-2 items-center px-3 py-3 rounded-lg cursor-pointer transition-colors text-sm border ${
-                        selectedDoc?.name === doc.name && detailOpen
+                        selectedDoc?.shareId === doc.shareId && detailOpen
                           ? "bg-accent/10 border-accent/20"
                           : "hover:bg-secondary/50 border-transparent"
                       }`}
@@ -227,7 +302,6 @@ export default function Shared() {
             </ScrollArea>
           </TabsContent>
 
-          {/* By person */}
           <TabsContent value="by-person" className="flex-1 min-h-0 mt-0">
             <ScrollArea className="h-full">
               <div className="px-4 lg:px-6 pb-6 space-y-6 pt-3">
@@ -247,10 +321,10 @@ export default function Shared() {
                         const Icon = fileIcons[doc.type] || File;
                         return (
                           <div
-                            key={doc.name}
+                            key={doc.shareId}
                             onClick={() => handleSelect(doc)}
                             className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors text-sm border ${
-                              selectedDoc?.name === doc.name && detailOpen
+                              selectedDoc?.shareId === doc.shareId && detailOpen
                                 ? "bg-accent/10 border-accent/20"
                                 : "hover:bg-secondary/50 border-transparent"
                             }`}
@@ -273,7 +347,6 @@ export default function Shared() {
         </Tabs>
       </div>
 
-      {/* Detail panel */}
       {detailOpen && selectedDoc && (
         <div className="hidden lg:flex w-72 flex-col border-l border-border bg-card animate-slide-right">
           <div className="flex items-center justify-between p-3 border-b border-border">
@@ -309,17 +382,19 @@ export default function Shared() {
                   </div>
                 </div>
               ))}
-              <div className="flex items-start gap-3">
-                <Tag className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Tags</p>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {selectedDoc.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="text-[10px]">{tag}</Badge>
-                    ))}
+              {selectedDoc.tags.length > 0 && (
+                <div className="flex items-start gap-3">
+                  <Tag className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Tags</p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {selectedDoc.tags.map((tag) => (
+                        <Badge key={tag} variant="secondary" className="text-[10px]">{tag}</Badge>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <Separator className="my-4" />
