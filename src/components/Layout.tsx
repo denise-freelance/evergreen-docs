@@ -34,6 +34,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { useDocumentStore } from "@/stores/useDocumentStore";
+import { useNotifications } from "@/hooks/useNotifications";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const baseNavItems = [
   { to: "/", icon: LayoutDashboard, label: "Tableau de bord" },
@@ -58,6 +60,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const { profile, isAdmin, signOut, user } = useAuth();
   const { searchDocuments, documents, loadAll, loaded } = useDocumentStore();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const headerResults = useMemo(() => searchDocuments(headerSearch), [headerSearch, documents]);
 
   useEffect(() => {
@@ -209,10 +212,55 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2 ml-auto">
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-accent" />
-            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative">
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-accent text-accent-foreground text-[10px] font-bold flex items-center justify-center">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80 p-0">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                  <p className="text-sm font-semibold">Notifications</p>
+                  {unreadCount > 0 && (
+                    <Button variant="ghost" size="sm" className="h-6 text-[11px]" onClick={markAllAsRead}>
+                      Tout marquer lu
+                    </Button>
+                  )}
+                </div>
+                <div className="max-h-96 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-8">Aucune notification</p>
+                  ) : (
+                    notifications.map((n) => (
+                      <button
+                        key={n.id}
+                        onClick={() => {
+                          if (!n.is_read) markAsRead(n.id);
+                          if (n.link) navigate(n.link);
+                        }}
+                        className={`w-full text-left px-4 py-3 border-b border-border last:border-0 hover:bg-secondary/50 transition-colors ${!n.is_read ? "bg-accent/5" : ""}`}
+                      >
+                        <div className="flex items-start gap-2">
+                          {!n.is_read && <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-accent shrink-0" />}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold truncate">{n.title}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{n.message}</p>
+                            <p className="text-[10px] text-muted-foreground/70 mt-1">
+                              {new Date(n.created_at).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </header>
 
