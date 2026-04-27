@@ -256,6 +256,39 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean
+          link: string | null
+          message: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          message: string
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          message?: string
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -344,6 +377,57 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      validation_requests: {
+        Row: {
+          created_at: string
+          deadline: string | null
+          decided_at: string | null
+          decision_reason: string | null
+          document_id: string
+          document_name: string
+          id: string
+          message: string | null
+          status: string
+          submitted_by: string
+          submitted_by_name: string
+          updated_at: string
+          validator_id: string
+          validator_name: string
+        }
+        Insert: {
+          created_at?: string
+          deadline?: string | null
+          decided_at?: string | null
+          decision_reason?: string | null
+          document_id: string
+          document_name: string
+          id?: string
+          message?: string | null
+          status?: string
+          submitted_by: string
+          submitted_by_name: string
+          updated_at?: string
+          validator_id: string
+          validator_name: string
+        }
+        Update: {
+          created_at?: string
+          deadline?: string | null
+          decided_at?: string | null
+          decision_reason?: string | null
+          document_id?: string
+          document_name?: string
+          id?: string
+          message?: string | null
+          status?: string
+          submitted_by?: string
+          submitted_by_name?: string
+          updated_at?: string
+          validator_id?: string
+          validator_name?: string
         }
         Relationships: []
       }
