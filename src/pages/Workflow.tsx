@@ -467,7 +467,29 @@ export default function Workflow() {
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="bg-secondary">
+          <TabsList className="bg-secondary flex-wrap h-auto">
+            <TabsTrigger value="all" className="text-xs">
+              Tous
+              <Badge variant="secondary" className="ml-1.5 text-[10px] h-5 px-1.5">{visibleItems.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="pending" className="text-xs">
+              En attente
+              <Badge variant="secondary" className="ml-1.5 text-[10px] h-5 px-1.5">
+                {visibleItems.filter((i) => i.status === "pending").length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="approved" className="text-xs">
+              Approuvé
+              <Badge variant="secondary" className="ml-1.5 text-[10px] h-5 px-1.5">
+                {visibleItems.filter((i) => i.status === "approved").length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="rejected" className="text-xs">
+              Rejeté
+              <Badge variant="secondary" className="ml-1.5 text-[10px] h-5 px-1.5">
+                {visibleItems.filter((i) => i.status === "rejected").length}
+              </Badge>
+            </TabsTrigger>
             <TabsTrigger value="incoming" className="text-xs">
               À examiner
               {incomingPending > 0 && (
@@ -478,12 +500,6 @@ export default function Workflow() {
               Mes demandes
               <Badge variant="secondary" className="ml-1.5 text-[10px] h-5 px-1.5">{outgoing.length}</Badge>
             </TabsTrigger>
-            {isAdmin && (
-              <TabsTrigger value="all" className="text-xs">
-                Toutes
-                <Badge variant="secondary" className="ml-1.5 text-[10px] h-5 px-1.5">{items.length}</Badge>
-              </TabsTrigger>
-            )}
           </TabsList>
         </Tabs>
       </div>
