@@ -1,23 +1,13 @@
 import { useState } from "react";
 import {
   Link2,
-  Plus,
-  Search,
-  Check,
   ExternalLink,
-  Settings,
-  RefreshCw,
   Upload,
-  X,
-  Cloud,
-  MessageSquare,
-  Zap,
-  HardDrive,
   Bell,
+  X,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
@@ -28,18 +18,71 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import ImportDocumentsDialog from "@/components/ImportDocumentsDialog";
+import { toast } from "@/hooks/use-toast";
 
-const connectors = [
+interface Connector {
+  name: string;
+  icon: string;
+  status: "connected" | "disconnected";
+  docs: number;
+  lastSync: string;
+}
+
+const initialConnectors: Connector[] = [
   { name: "Google Drive", icon: "🔵", status: "connected", docs: 234, lastSync: "il y a 5 min" },
   { name: "OneDrive", icon: "🔷", status: "connected", docs: 89, lastSync: "il y a 1h" },
+  { name: "Gmail", icon: "📧", status: "connected", docs: 42, lastSync: "il y a 10 min" },
+  { name: "Outlook", icon: "📨", status: "disconnected", docs: 0, lastSync: "-" },
+  { name: "WhatsApp Desktop", icon: "🟢", status: "disconnected", docs: 0, lastSync: "-" },
   { name: "Slack", icon: "💬", status: "connected", docs: 0, lastSync: "Temps réel" },
   { name: "Microsoft Teams", icon: "🟣", status: "disconnected", docs: 0, lastSync: "-" },
-  { name: "Zapier", icon: "⚡", status: "disconnected", docs: 0, lastSync: "-" },
   { name: "Dropbox", icon: "📦", status: "disconnected", docs: 0, lastSync: "-" },
+  { name: "Zapier", icon: "⚡", status: "disconnected", docs: 0, lastSync: "-" },
 ];
 
 export default function Connectors() {
   const [importOpen, setImportOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [connectors, setConnectors] = useState<Connector[]>(initialConnectors);
+
+  const toggleConnector = (name: string) => {
+    setConnectors((prev) =>
+      prev.map((c) => {
+        if (c.name !== name) return c;
+        const newStatus = c.status === "connected" ? "disconnected" : "connected";
+        toast({
+          title: newStatus === "connected" ? "Application connectée" : "Application déconnectée",
+          description: `${c.name} ${newStatus === "connected" ? "est maintenant connectée à votre système." : "a été déconnectée."}`,
+        });
+        return {
+          ...c,
+          status: newStatus,
+          lastSync: newStatus === "connected" ? "à l'instant" : "-",
+        };
+      })
+    );
+  };
+
+  const handleSourceImport = (conn: Connector) => {
+    toast({
+      title: `Import depuis ${conn.name}`,
+      description: "Ouverture de la source pour sélectionner les documents...",
+    });
+    setImportOpen(false);
+  };
+
+  const handleLocalImport = () => {
+    setImportOpen(false);
+    setUploadOpen(true);
+  };
+
+  const handleFilesImported = (files: File[], folder: string) => {
+    toast({
+      title: "Documents importés",
+      description: `${files.length} fichier(s) importé(s) dans ${folder}.`,
+    });
+  };
 
   return (
     <div className="p-4 lg:p-6 space-y-6 animate-fade-in">
@@ -93,7 +136,11 @@ export default function Connectors() {
                     </Badge>
                   </div>
                 </div>
-                <Switch checked={conn.status === "connected"} />
+                <Switch
+                  checked={conn.status === "connected"}
+                  onCheckedChange={() => toggleConnector(conn.name)}
+                  aria-label={`Connecter ou déconnecter ${conn.name}`}
+                />
               </div>
               {conn.status === "connected" && (
                 <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
@@ -102,7 +149,12 @@ export default function Connectors() {
                 </div>
               )}
               {conn.status === "disconnected" && (
-                <Button variant="outline" size="sm" className="w-full mt-4 text-xs gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full mt-4 text-xs gap-1.5"
+                  onClick={() => toggleConnector(conn.name)}
+                >
                   <Link2 className="h-3.5 w-3.5" /> Connecter
                 </Button>
               )}
@@ -111,7 +163,7 @@ export default function Connectors() {
         ))}
       </div>
 
-      {/* Import modal */}
+      {/* Import source modal */}
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -122,6 +174,7 @@ export default function Connectors() {
             {connectors.filter((c) => c.status === "connected").map((conn) => (
               <button
                 key={conn.name}
+                onClick={() => handleSourceImport(conn)}
                 className="flex items-center gap-3 w-full rounded-lg border border-border p-3 hover:bg-secondary/50 transition-colors text-left"
               >
                 <span className="text-xl">{conn.icon}</span>
@@ -135,14 +188,24 @@ export default function Connectors() {
               </button>
             ))}
             <Separator />
-            <div className="rounded-lg border-2 border-dashed border-accent/30 bg-accent/5 p-6 text-center">
-              <Upload className="h-6 w-6 mx-auto text-accent/50 mb-2" />
+            <button
+              onClick={handleLocalImport}
+              className="w-full rounded-lg border-2 border-dashed border-accent/30 bg-accent/5 p-6 text-center hover:bg-accent/10 transition-colors"
+            >
+              <Upload className="h-6 w-6 mx-auto text-accent/70 mb-2" />
               <p className="text-sm font-medium">Depuis votre ordinateur</p>
               <p className="text-xs text-muted-foreground mt-1">Glissez-déposez ou cliquez pour parcourir</p>
-            </div>
+            </button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Local upload dialog */}
+      <ImportDocumentsDialog
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        onImport={handleFilesImported}
+      />
     </div>
   );
 }
