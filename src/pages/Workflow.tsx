@@ -422,12 +422,36 @@ export default function Workflow() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.user_id]);
 
+  // Items the user can see (validator, submitter, or admin sees all)
+  const visibleItems = useMemo(
+    () =>
+      isAdmin
+        ? items
+        : items.filter((i) => i.validator_id === user?.user_id || i.submitted_by === user?.user_id),
+    [items, isAdmin, user?.user_id]
+  );
+
   const incoming = items.filter((i) => i.validator_id === user?.user_id);
   const outgoing = items.filter((i) => i.submitted_by === user?.user_id);
 
-  const baseList = tab === "incoming" ? incoming : tab === "outgoing" ? outgoing : isAdmin ? items : [];
-
-  const filtered = baseList;
+  const filtered = useMemo(() => {
+    switch (tab) {
+      case "all":
+        return visibleItems;
+      case "pending":
+        return visibleItems.filter((i) => i.status === "pending");
+      case "approved":
+        return visibleItems.filter((i) => i.status === "approved");
+      case "rejected":
+        return visibleItems.filter((i) => i.status === "rejected");
+      case "incoming":
+        return incoming;
+      case "outgoing":
+        return outgoing;
+      default:
+        return visibleItems;
+    }
+  }, [tab, visibleItems, incoming, outgoing]);
 
   const incomingPending = incoming.filter((i) => i.status === "pending").length;
 
