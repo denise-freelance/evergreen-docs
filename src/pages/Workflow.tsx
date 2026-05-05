@@ -422,12 +422,36 @@ export default function Workflow() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.user_id]);
 
+  // Items the user can see (validator, submitter, or admin sees all)
+  const visibleItems = useMemo(
+    () =>
+      isAdmin
+        ? items
+        : items.filter((i) => i.validator_id === user?.user_id || i.submitted_by === user?.user_id),
+    [items, isAdmin, user?.user_id]
+  );
+
   const incoming = items.filter((i) => i.validator_id === user?.user_id);
   const outgoing = items.filter((i) => i.submitted_by === user?.user_id);
 
-  const baseList = tab === "incoming" ? incoming : tab === "outgoing" ? outgoing : isAdmin ? items : [];
-
-  const filtered = baseList;
+  const filtered = useMemo(() => {
+    switch (tab) {
+      case "all":
+        return visibleItems;
+      case "pending":
+        return visibleItems.filter((i) => i.status === "pending");
+      case "approved":
+        return visibleItems.filter((i) => i.status === "approved");
+      case "rejected":
+        return visibleItems.filter((i) => i.status === "rejected");
+      case "incoming":
+        return incoming;
+      case "outgoing":
+        return outgoing;
+      default:
+        return visibleItems;
+    }
+  }, [tab, visibleItems, incoming, outgoing]);
 
   const incomingPending = incoming.filter((i) => i.status === "pending").length;
 
@@ -443,7 +467,29 @@ export default function Workflow() {
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="bg-secondary">
+          <TabsList className="bg-secondary flex-wrap h-auto">
+            <TabsTrigger value="all" className="text-xs">
+              Tous
+              <Badge variant="secondary" className="ml-1.5 text-[10px] h-5 px-1.5">{visibleItems.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="pending" className="text-xs">
+              En attente
+              <Badge variant="secondary" className="ml-1.5 text-[10px] h-5 px-1.5">
+                {visibleItems.filter((i) => i.status === "pending").length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="approved" className="text-xs">
+              Approuvé
+              <Badge variant="secondary" className="ml-1.5 text-[10px] h-5 px-1.5">
+                {visibleItems.filter((i) => i.status === "approved").length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="rejected" className="text-xs">
+              Rejeté
+              <Badge variant="secondary" className="ml-1.5 text-[10px] h-5 px-1.5">
+                {visibleItems.filter((i) => i.status === "rejected").length}
+              </Badge>
+            </TabsTrigger>
             <TabsTrigger value="incoming" className="text-xs">
               À examiner
               {incomingPending > 0 && (
@@ -454,12 +500,6 @@ export default function Workflow() {
               Mes demandes
               <Badge variant="secondary" className="ml-1.5 text-[10px] h-5 px-1.5">{outgoing.length}</Badge>
             </TabsTrigger>
-            {isAdmin && (
-              <TabsTrigger value="all" className="text-xs">
-                Toutes
-                <Badge variant="secondary" className="ml-1.5 text-[10px] h-5 px-1.5">{items.length}</Badge>
-              </TabsTrigger>
-            )}
           </TabsList>
         </Tabs>
       </div>
