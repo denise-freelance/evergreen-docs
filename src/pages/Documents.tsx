@@ -522,9 +522,7 @@ export default function Documents() {
                       <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => handlePreview(selectedFile)}>
                         <Eye className="h-3.5 w-3.5" /> Aperçu
                       </Button>
-                      <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 gap-1.5 text-xs">
-                        <Download className="h-3.5 w-3.5" /> Télécharger
-                      </Button>
+                      <DownloadMenu file={selectedFile} />
                     </div>
                   </div>
                 )}
