@@ -29,6 +29,8 @@ import {
 import { useDocumentStore, type DocFile, type FolderNode } from "@/stores/useDocumentStore";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Printer } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -123,7 +125,7 @@ function TreeItem({
 }
 
 export default function Documents() {
-  const { documents, folders, addDocuments, viewDocument, createFolder } = useDocumentStore();
+  const { documents, folders, addDocuments, viewDocument, createFolder, getSignedUrl } = useDocumentStore();
   const { profile, user, isAdmin } = useAuth();
   const author = profile?.username || "Utilisateur";
   const authorId = user?.user_id || "";
@@ -222,6 +224,88 @@ export default function Documents() {
     viewDocument(file.id, author, authorId);
     setPreviewOpen(true);
   };
+
+  const handleExport = async (file: DocFile) => {
+    if (!file.storagePath) {
+      toast({ title: "Export impossible", description: "Aucun fichier source disponible.", variant: "destructive" });
+      return;
+    }
+    const url = await getSignedUrl(file.storagePath);
+    if (!url) {
+      toast({ title: "Erreur", description: "Impossible de récupérer le document.", variant: "destructive" });
+      return;
+    }
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      // Use File System Access API when available to let user pick folder
+      const anyWin = window as any;
+      if (anyWin.showSaveFilePicker) {
+        try {
+          const handle = await anyWin.showSaveFilePicker({ suggestedName: file.name });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          toast({ title: "Document exporté", description: `${file.name} a été enregistré.` });
+          return;
+        } catch (err: any) {
+          if (err?.name === "AbortError") return;
+        }
+      }
+      // Fallback: classic download
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+      toast({ title: "Téléchargement lancé", description: file.name });
+    } catch (e) {
+      toast({ title: "Erreur", description: "Échec de l'export.", variant: "destructive" });
+    }
+  };
+
+  const handlePrint = async (file: DocFile) => {
+    if (!file.storagePath) return;
+    const url = await getSignedUrl(file.storagePath);
+    if (!url) {
+      toast({ title: "Erreur", description: "Impossible de charger le document.", variant: "destructive" });
+      return;
+    }
+    const w = window.open(url, "_blank");
+    if (w) {
+      w.addEventListener("load", () => {
+        try { w.focus(); w.print(); } catch (e) { console.error(e); }
+      });
+    }
+  };
+
+  const DownloadMenu = ({ file, full = false }: { file: DocFile; full?: boolean }) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        {full ? (
+          <Button variant="outline" size="sm" className="w-full text-xs gap-1.5 justify-start">
+            <Download className="h-3.5 w-3.5" /> Télécharger
+          </Button>
+        ) : (
+          <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 gap-1.5 text-xs">
+            <Download className="h-3.5 w-3.5" /> Télécharger
+          </Button>
+        )}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuItem onClick={() => handleExport(file)} className="gap-2 text-xs">
+          <Download className="h-3.5 w-3.5" /> Exporter sur la machine
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handlePrint(file)} className="gap-2 text-xs">
+          <Printer className="h-3.5 w-3.5" /> Imprimer le document
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
 
   const handleCreateFolder = async (parentPath: string | null, name: string, sub: string | null, files: File[]) => {
     const folderPath = await createFolder(parentPath, name, author, authorId);
@@ -438,9 +522,7 @@ export default function Documents() {
                       <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => handlePreview(selectedFile)}>
                         <Eye className="h-3.5 w-3.5" /> Aperçu
                       </Button>
-                      <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 gap-1.5 text-xs">
-                        <Download className="h-3.5 w-3.5" /> Télécharger
-                      </Button>
+                      <DownloadMenu file={selectedFile} />
                     </div>
                   </div>
                 )}
@@ -511,9 +593,7 @@ export default function Documents() {
               <Button variant="outline" size="sm" className="w-full text-xs gap-1.5 justify-start" onClick={() => setShareOpen(true)}>
                 <Share2 className="h-3.5 w-3.5" /> Partager
               </Button>
-              <Button variant="outline" size="sm" className="w-full text-xs gap-1.5 justify-start">
-                <Download className="h-3.5 w-3.5" /> Télécharger
-              </Button>
+              <DownloadMenu file={selectedFile} full />
               <Button variant="outline" size="sm" className="w-full text-xs gap-1.5 justify-start text-destructive hover:text-destructive">
                 <Trash2 className="h-3.5 w-3.5" /> Supprimer
               </Button>
