@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, ZoomIn, ZoomOut, RotateCw, FileText, FileSpreadsheet, FileImage, File, Loader2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Download, ZoomIn, ZoomOut, RotateCw, FileText, FileSpreadsheet, FileImage, File, Loader2, Printer, ChevronDown } from "lucide-react";
 import type { DocFile } from "@/stores/useDocumentStore";
 import { useDocumentStore } from "@/stores/useDocumentStore";
 
@@ -54,15 +55,36 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
   const handleZoomOut = () => setZoom((z) => Math.max(z - 25, 50));
   const handleRotate = () => setRotation((r) => (r + 90) % 360);
 
+  const handlePrint = () => {
+    if (!signedUrl) return;
+    const w = window.open(signedUrl, "_blank");
+    if (w) {
+      w.addEventListener("load", () => {
+        try { w.focus(); w.print(); } catch (e) { console.error(e); }
+      });
+    }
+  };
+
+  const handleExport = () => {
+    if (!signedUrl) return;
+    const a = document.createElement("a");
+    a.href = signedUrl;
+    a.download = file.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-6xl w-[95vw] h-[90vh] flex flex-col p-0 gap-0">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
           <div className="flex items-center gap-3 min-w-0">
             <Icon className="h-5 w-5 text-muted-foreground shrink-0" />
             <div className="min-w-0">
               <DialogHeader className="p-0 space-y-0">
                 <DialogTitle className="text-sm font-semibold truncate">{file.name}</DialogTitle>
+                <DialogDescription className="sr-only">Aperçu du document {file.name}</DialogDescription>
               </DialogHeader>
               <p className="text-[11px] text-muted-foreground">
                 {file.size} · {file.version} · {file.author}
@@ -82,24 +104,31 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
             </Button>
             <div className="w-px h-5 bg-border mx-1" />
             {signedUrl && (
-              <a href={signedUrl} download={file.name} target="_blank" rel="noreferrer">
-                <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
-                  <Download className="h-3.5 w-3.5" /> Télécharger
-                </Button>
-              </a>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                    <Download className="h-3.5 w-3.5" /> Télécharger
+                    <ChevronDown className="h-3 w-3 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem onClick={handleExport} className="gap-2 text-xs">
+                    <Download className="h-3.5 w-3.5" /> Exporter sur la machine
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handlePrint} className="gap-2 text-xs">
+                    <Printer className="h-3.5 w-3.5" /> Imprimer le document
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto bg-muted/50 flex items-start justify-center p-6">
+        <div className="flex-1 overflow-hidden bg-muted/50 flex items-stretch justify-center p-4">
           <div
-            className="bg-background shadow-lg rounded-lg border border-border transition-transform duration-200 origin-center"
+            className="bg-background shadow-lg rounded-lg border border-border transition-transform duration-200 origin-top w-full max-w-5xl flex flex-col overflow-auto"
             style={{
               transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
-              minWidth: "600px",
-              maxWidth: "800px",
-              width: "100%",
-              minHeight: "400px",
             }}
           >
             {loading && (
@@ -117,18 +146,23 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
               <img src={signedUrl} alt={file.name} className="w-full h-auto rounded-lg" />
             )}
             {!loading && signedUrl && isPdf && (
-              <iframe src={signedUrl} title={file.name} className="w-full h-[600px] rounded-lg" />
+              <iframe src={signedUrl} title={file.name} className="w-full flex-1 min-h-[70vh] rounded-lg border-0" />
             )}
-            {!loading && signedUrl && !isImage && !isPdf && (
+            {!loading && signedUrl && file.type === "doc" && (
+              <iframe
+                src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(signedUrl)}`}
+                title={file.name}
+                className="w-full flex-1 min-h-[70vh] rounded-lg border-0"
+              />
+            )}
+            {!loading && signedUrl && !isImage && !isPdf && file.type !== "doc" && (
               <div className="flex flex-col items-center justify-center h-96 text-center p-6">
                 <Icon className="h-16 w-16 text-muted-foreground/60 mb-3" />
                 <p className="text-sm font-medium">{file.name}</p>
                 <p className="text-xs text-muted-foreground mt-1">L'aperçu n'est pas disponible pour ce type de fichier.</p>
-                <a href={signedUrl} download={file.name} target="_blank" rel="noreferrer" className="mt-4">
-                  <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 gap-1.5">
-                    <Download className="h-3.5 w-3.5" /> Télécharger pour ouvrir
-                  </Button>
-                </a>
+                <Button onClick={handleExport} size="sm" className="mt-4 bg-accent text-accent-foreground hover:bg-accent/90 gap-1.5">
+                  <Download className="h-3.5 w-3.5" /> Télécharger pour ouvrir
+                </Button>
               </div>
             )}
           </div>
