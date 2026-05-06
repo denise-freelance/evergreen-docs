@@ -104,24 +104,31 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
             </Button>
             <div className="w-px h-5 bg-border mx-1" />
             {signedUrl && (
-              <a href={signedUrl} download={file.name} target="_blank" rel="noreferrer">
-                <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
-                  <Download className="h-3.5 w-3.5" /> Télécharger
-                </Button>
-              </a>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                    <Download className="h-3.5 w-3.5" /> Télécharger
+                    <ChevronDown className="h-3 w-3 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem onClick={handleExport} className="gap-2 text-xs">
+                    <Download className="h-3.5 w-3.5" /> Exporter sur la machine
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handlePrint} className="gap-2 text-xs">
+                    <Printer className="h-3.5 w-3.5" /> Imprimer le document
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto bg-muted/50 flex items-start justify-center p-6">
+        <div className="flex-1 overflow-hidden bg-muted/50 flex items-stretch justify-center p-4">
           <div
-            className="bg-background shadow-lg rounded-lg border border-border transition-transform duration-200 origin-center"
+            className="bg-background shadow-lg rounded-lg border border-border transition-transform duration-200 origin-top w-full max-w-5xl flex flex-col overflow-auto"
             style={{
               transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
-              minWidth: "600px",
-              maxWidth: "800px",
-              width: "100%",
-              minHeight: "400px",
             }}
           >
             {loading && (
