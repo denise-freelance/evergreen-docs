@@ -593,9 +593,7 @@ export default function Documents() {
               <Button variant="outline" size="sm" className="w-full text-xs gap-1.5 justify-start" onClick={() => setShareOpen(true)}>
                 <Share2 className="h-3.5 w-3.5" /> Partager
               </Button>
-              <Button variant="outline" size="sm" className="w-full text-xs gap-1.5 justify-start">
-                <Download className="h-3.5 w-3.5" /> Télécharger
-              </Button>
+              <DownloadMenu file={selectedFile} full />
               <Button variant="outline" size="sm" className="w-full text-xs gap-1.5 justify-start text-destructive hover:text-destructive">
                 <Trash2 className="h-3.5 w-3.5" /> Supprimer
               </Button>
