@@ -125,7 +125,7 @@ function TreeItem({
 }
 
 export default function Documents() {
-  const { documents, folders, addDocuments, viewDocument, createFolder } = useDocumentStore();
+  const { documents, folders, addDocuments, viewDocument, createFolder, getSignedUrl } = useDocumentStore();
   const { profile, user, isAdmin } = useAuth();
   const author = profile?.username || "Utilisateur";
   const authorId = user?.user_id || "";
