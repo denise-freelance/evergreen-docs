@@ -146,18 +146,23 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
               <img src={signedUrl} alt={file.name} className="w-full h-auto rounded-lg" />
             )}
             {!loading && signedUrl && isPdf && (
-              <iframe src={signedUrl} title={file.name} className="w-full h-[600px] rounded-lg" />
+              <iframe src={signedUrl} title={file.name} className="w-full flex-1 min-h-[70vh] rounded-lg border-0" />
             )}
-            {!loading && signedUrl && !isImage && !isPdf && (
+            {!loading && signedUrl && file.type === "doc" && (
+              <iframe
+                src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(signedUrl)}`}
+                title={file.name}
+                className="w-full flex-1 min-h-[70vh] rounded-lg border-0"
+              />
+            )}
+            {!loading && signedUrl && !isImage && !isPdf && file.type !== "doc" && (
               <div className="flex flex-col items-center justify-center h-96 text-center p-6">
                 <Icon className="h-16 w-16 text-muted-foreground/60 mb-3" />
                 <p className="text-sm font-medium">{file.name}</p>
                 <p className="text-xs text-muted-foreground mt-1">L'aperçu n'est pas disponible pour ce type de fichier.</p>
-                <a href={signedUrl} download={file.name} target="_blank" rel="noreferrer" className="mt-4">
-                  <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 gap-1.5">
-                    <Download className="h-3.5 w-3.5" /> Télécharger pour ouvrir
-                  </Button>
-                </a>
+                <Button onClick={handleExport} size="sm" className="mt-4 bg-accent text-accent-foreground hover:bg-accent/90 gap-1.5">
+                  <Download className="h-3.5 w-3.5" /> Télécharger pour ouvrir
+                </Button>
               </div>
             )}
           </div>
