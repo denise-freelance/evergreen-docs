@@ -55,6 +55,26 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
   const handleZoomOut = () => setZoom((z) => Math.max(z - 25, 50));
   const handleRotate = () => setRotation((r) => (r + 90) % 360);
 
+  const handlePrint = () => {
+    if (!signedUrl) return;
+    const w = window.open(signedUrl, "_blank");
+    if (w) {
+      w.addEventListener("load", () => {
+        try { w.focus(); w.print(); } catch (e) { console.error(e); }
+      });
+    }
+  };
+
+  const handleExport = () => {
+    if (!signedUrl) return;
+    const a = document.createElement("a");
+    a.href = signedUrl;
+    a.download = file.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 gap-0">
