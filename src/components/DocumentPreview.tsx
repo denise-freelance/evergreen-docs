@@ -84,6 +84,7 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
             <div className="min-w-0">
               <DialogHeader className="p-0 space-y-0">
                 <DialogTitle className="text-sm font-semibold truncate">{file.name}</DialogTitle>
+                <DialogDescription className="sr-only">Aperçu du document {file.name}</DialogDescription>
               </DialogHeader>
               <p className="text-[11px] text-muted-foreground">
                 {file.size} · {file.version} · {file.author}
