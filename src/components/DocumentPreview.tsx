@@ -77,7 +77,7 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-6xl w-[95vw] h-[90vh] flex flex-col p-0 gap-0">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
           <div className="flex items-center gap-3 min-w-0">
             <Icon className="h-5 w-5 text-muted-foreground shrink-0" />
