@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, MoreHorizontal, Edit2, Trash2, Loader2, ChevronRight, FolderPlus } from "lucide-react";
+import { Search, Plus, MoreHorizontal, Edit2, Trash2, Loader2, ChevronRight, FolderPlus, Users } from "lucide-react";
+import GroupMembersDialog from "@/components/admin/GroupMembersDialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,7 @@ export default function GroupsTab() {
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [formName, setFormName] = useState("");
   const [formDesc, setFormDesc] = useState("");
@@ -155,6 +157,9 @@ export default function GroupsTab() {
                   <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => { setSelectedGroup(group); setMembersOpen(true); }}>
+                    <Users className="mr-2 h-4 w-4" /> Membres
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => openEdit(group)}>
                     <Edit2 className="mr-2 h-4 w-4" /> Modifier
                   </DropdownMenuItem>
@@ -275,6 +280,8 @@ export default function GroupsTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <GroupMembersDialog open={membersOpen} onOpenChange={setMembersOpen} group={selectedGroup} />
     </div>
   );
 }
