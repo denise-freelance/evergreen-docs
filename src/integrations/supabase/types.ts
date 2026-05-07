@@ -194,8 +194,9 @@ export type Database = {
       folders: {
         Row: {
           created_at: string
-          created_by: string
-          created_by_name: string
+          created_by: string | null
+          created_by_name: string | null
+          group_id: string | null
           id: string
           name: string
           parent_path: string | null
@@ -203,8 +204,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          created_by: string
-          created_by_name: string
+          created_by?: string | null
+          created_by_name?: string | null
+          group_id?: string | null
           id?: string
           name: string
           parent_path?: string | null
@@ -212,8 +214,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          created_by?: string
-          created_by_name?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          group_id?: string | null
           id?: string
           name?: string
           parent_path?: string | null
