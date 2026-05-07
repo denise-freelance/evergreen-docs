@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, MoreHorizontal, Edit2, Trash2, Loader2, ChevronRight, FolderPlus, Users } from "lucide-react";
+import { Search, Plus, MoreHorizontal, Edit2, Trash2, Loader2, ChevronRight, ChevronDown, FolderPlus, Users } from "lucide-react";
 import GroupMembersDialog from "@/components/admin/GroupMembersDialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
