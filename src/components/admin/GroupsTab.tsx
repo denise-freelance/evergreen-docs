@@ -30,6 +30,7 @@ export default function GroupsTab() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [formName, setFormName] = useState("");
   const [formDesc, setFormDesc] = useState("");
   const [formIcon, setFormIcon] = useState("📁");
