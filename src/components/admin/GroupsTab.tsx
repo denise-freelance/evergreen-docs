@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, MoreHorizontal, Edit2, Trash2, Loader2, ChevronRight, FolderPlus, Users } from "lucide-react";
+import { Search, Plus, MoreHorizontal, Edit2, Trash2, Loader2, ChevronRight, ChevronDown, FolderPlus, Users } from "lucide-react";
 import GroupMembersDialog from "@/components/admin/GroupMembersDialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ export default function GroupsTab() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [formName, setFormName] = useState("");
   const [formDesc, setFormDesc] = useState("");
   const [formIcon, setFormIcon] = useState("📁");
@@ -133,28 +134,46 @@ export default function GroupsTab() {
     setAddOpen(true);
   };
 
+  const toggleExpand = (id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const GroupCard = ({ group, depth = 0 }: { group: Group; depth?: number }) => {
     const children = getChildren(group.id);
+    const hasChildren = children.length > 0;
+    const isOpen = expanded.has(group.id);
     return (
       <>
         <Card className="shadow-card hover:shadow-card-hover transition-shadow" style={{ marginLeft: depth * 24 }}>
           <CardContent className="pt-5 pb-4">
             <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg flex items-center justify-center text-lg bg-accent/10">
+              <div
+                className={`flex items-center gap-3 flex-1 ${hasChildren ? "cursor-pointer" : ""}`}
+                onClick={() => hasChildren && toggleExpand(group.id)}
+              >
+                <div className="h-10 w-10 rounded-lg flex items-center justify-center text-lg bg-accent/10 relative">
                   {group.icon}
+                  {hasChildren && (
+                    <span className="absolute -bottom-1 -right-1 bg-background rounded-full border">
+                      {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                    </span>
+                  )}
                 </div>
                 <div>
-                  <div className="flex items-center gap-1.5">
-                    {depth > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground" />}
-                    <p className="font-semibold text-sm">{group.name}</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{group.description ?? "Aucune description"}</p>
+                  <p className="font-semibold text-sm">{group.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {group.description ?? (hasChildren ? `${children.length} sous-groupe${children.length > 1 ? "s" : ""}` : "Aucune description")}
+                  </p>
                 </div>
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => { setSelectedGroup(group); setMembersOpen(true); }}>
@@ -175,7 +194,7 @@ export default function GroupsTab() {
             </div>
           </CardContent>
         </Card>
-        {children.map((child) => (
+        {isOpen && children.map((child) => (
           <GroupCard key={child.id} group={child} depth={depth + 1} />
         ))}
       </>
