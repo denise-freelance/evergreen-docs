@@ -245,12 +245,12 @@ export default function GroupsTab() {
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="flex flex-col gap-3 max-w-2xl">
           {rootGroups.map((group) => (
             <GroupCard key={group.id} group={group} />
           ))}
           {rootGroups.length === 0 && (
-            <p className="text-sm text-muted-foreground col-span-full text-center py-8">Aucun groupe trouvé.</p>
+            <p className="text-sm text-muted-foreground text-center py-8">Aucun groupe trouvé.</p>
           )}
         </div>
       )}
