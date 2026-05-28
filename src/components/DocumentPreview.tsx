@@ -31,18 +31,51 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { getSignedUrl } = useDocumentStore();
 
   useEffect(() => {
+    let objectUrl: string | null = null;
+
     if (!file?.storagePath || !open) {
       setSignedUrl(null);
+      setPreviewUrl(null);
       return;
     }
+
     setLoading(true);
+    setSignedUrl(null);
+    setPreviewUrl(null);
+
     getSignedUrl(file.storagePath)
-      .then((url) => setSignedUrl(url))
+      .then(async (url) => {
+        setSignedUrl(url);
+        if (!url) return;
+
+        if (file.type === "pdf" || file.type === "image") {
+          const response = await fetch(url);
+          if (!response.ok) throw new Error("preview_fetch_failed");
+          const sourceBlob = await response.blob();
+          const previewBlob = file.type === "pdf" && sourceBlob.type !== "application/pdf"
+            ? new Blob([sourceBlob], { type: "application/pdf" })
+            : sourceBlob;
+          objectUrl = URL.createObjectURL(previewBlob);
+          setPreviewUrl(objectUrl);
+          return;
+        }
+
+        setPreviewUrl(url);
+      })
+      .catch((error) => {
+        console.error("Preview load error", error);
+        setPreviewUrl(null);
+      })
       .finally(() => setLoading(false));
+
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   }, [file?.storagePath, open, getSignedUrl]);
 
   if (!file) return null;
@@ -56,8 +89,9 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
   const handleRotate = () => setRotation((r) => (r + 90) % 360);
 
   const handlePrint = () => {
-    if (!signedUrl) return;
-    const w = window.open(signedUrl, "_blank");
+    const printUrl = previewUrl || signedUrl;
+    if (!printUrl) return;
+    const w = window.open(printUrl, "_blank");
     if (w) {
       w.addEventListener("load", () => {
         try { w.focus(); w.print(); } catch (e) { console.error(e); }
@@ -142,17 +176,17 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
                 <p className="text-sm text-muted-foreground">Aperçu indisponible</p>
               </div>
             )}
-            {!loading && signedUrl && isImage && (
-              <img src={signedUrl} alt={file.name} className="w-full h-auto rounded-lg" />
+            {!loading && previewUrl && isImage && (
+              <img src={previewUrl} alt={file.name} className="w-full h-auto rounded-lg" />
             )}
-            {!loading && signedUrl && isPdf && (
+            {!loading && previewUrl && isPdf && (
               <object
-                data={`${signedUrl}#toolbar=1&navpanes=0&view=FitH`}
+                data={`${previewUrl}#toolbar=1&navpanes=0&view=FitH`}
                 type="application/pdf"
                 className="w-full flex-1 min-h-[70vh] rounded-lg border-0"
               >
                 <iframe
-                  src={`${signedUrl}#toolbar=1&view=FitH`}
+                  src={`${previewUrl}#toolbar=1&view=FitH`}
                   title={file.name}
                   className="w-full flex-1 min-h-[70vh] rounded-lg border-0"
                 />
