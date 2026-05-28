@@ -1,11 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Download, ZoomIn, ZoomOut, RotateCw, FileText, FileSpreadsheet, FileImage, File, Loader2, Printer, ChevronDown } from "lucide-react";
+import { Document, Page, pdfjs } from "react-pdf";
 import type { DocFile } from "@/stores/useDocumentStore";
 import { useDocumentStore } from "@/stores/useDocumentStore";
+
+pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
 
 interface DocumentPreviewProps {
   open: boolean;
@@ -32,6 +35,7 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
   const [rotation, setRotation] = useState(0);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [pageCount, setPageCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const { getSignedUrl } = useDocumentStore();
 
@@ -47,6 +51,7 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
     setLoading(true);
     setSignedUrl(null);
     setPreviewUrl(null);
+    setPageCount(0);
 
     getSignedUrl(file.storagePath)
       .then(async (url) => {
@@ -87,6 +92,7 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
   const handleZoomIn = () => setZoom((z) => Math.min(z + 25, 200));
   const handleZoomOut = () => setZoom((z) => Math.max(z - 25, 50));
   const handleRotate = () => setRotation((r) => (r + 90) % 360);
+  const pdfScale = useMemo(() => Math.max(0.5, zoom / 100), [zoom]);
 
   const handlePrint = () => {
     const printUrl = previewUrl || signedUrl;
@@ -180,24 +186,39 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
               <img src={previewUrl} alt={file.name} className="w-full h-auto rounded-lg" />
             )}
             {!loading && previewUrl && isPdf && (
-              <object
-                data={`${previewUrl}#toolbar=1&navpanes=0&view=FitH`}
-                type="application/pdf"
-                className="w-full flex-1 min-h-[70vh] rounded-lg border-0"
-              >
-                <iframe
-                  src={`${previewUrl}#toolbar=1&view=FitH`}
-                  title={file.name}
-                  className="w-full flex-1 min-h-[70vh] rounded-lg border-0"
-                />
-                <div className="flex flex-col items-center justify-center h-96 text-center p-6">
-                  <FileText className="h-16 w-16 text-muted-foreground/60 mb-3" />
-                  <p className="text-sm">Votre navigateur ne peut pas afficher ce PDF en ligne.</p>
-                  <Button onClick={handleExport} size="sm" className="mt-4 gap-1.5">
-                    <Download className="h-3.5 w-3.5" /> Télécharger le PDF
-                  </Button>
-                </div>
-              </object>
+              <div className="flex-1 min-h-[70vh] overflow-auto bg-muted/30 p-4">
+                <Document
+                  file={previewUrl}
+                  loading={
+                    <div className="flex items-center justify-center h-96">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                  }
+                  error={
+                    <div className="flex flex-col items-center justify-center h-96 text-center p-6">
+                      <FileText className="h-16 w-16 text-muted-foreground/60 mb-3" />
+                      <p className="text-sm">Impossible d'afficher ce PDF dans l'application.</p>
+                      <Button onClick={handleExport} size="sm" className="mt-4 gap-1.5">
+                        <Download className="h-3.5 w-3.5" /> Télécharger le PDF
+                      </Button>
+                    </div>
+                  }
+                  onLoadSuccess={({ numPages }) => setPageCount(numPages)}
+                  className="flex flex-col items-center gap-4"
+                >
+                  {Array.from({ length: pageCount }, (_, index) => (
+                    <Page
+                      key={`page_${index + 1}`}
+                      pageNumber={index + 1}
+                      scale={pdfScale}
+                      rotate={rotation}
+                      renderAnnotationLayer={false}
+                      renderTextLayer={false}
+                      className="overflow-hidden rounded-md border border-border bg-background shadow-sm"
+                    />
+                  ))}
+                </Document>
+              </div>
             )}
             {!loading && signedUrl && file.type === "doc" && (
               <iframe
