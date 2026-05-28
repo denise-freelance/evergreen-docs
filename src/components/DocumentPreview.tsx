@@ -146,7 +146,24 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
               <img src={signedUrl} alt={file.name} className="w-full h-auto rounded-lg" />
             )}
             {!loading && signedUrl && isPdf && (
-              <iframe src={signedUrl} title={file.name} className="w-full flex-1 min-h-[70vh] rounded-lg border-0" />
+              <object
+                data={`${signedUrl}#toolbar=1&navpanes=0&view=FitH`}
+                type="application/pdf"
+                className="w-full flex-1 min-h-[70vh] rounded-lg border-0"
+              >
+                <iframe
+                  src={`${signedUrl}#toolbar=1&view=FitH`}
+                  title={file.name}
+                  className="w-full flex-1 min-h-[70vh] rounded-lg border-0"
+                />
+                <div className="flex flex-col items-center justify-center h-96 text-center p-6">
+                  <FileText className="h-16 w-16 text-muted-foreground/60 mb-3" />
+                  <p className="text-sm">Votre navigateur ne peut pas afficher ce PDF en ligne.</p>
+                  <Button onClick={handleExport} size="sm" className="mt-4 gap-1.5">
+                    <Download className="h-3.5 w-3.5" /> Télécharger le PDF
+                  </Button>
+                </div>
+              </object>
             )}
             {!loading && signedUrl && file.type === "doc" && (
               <iframe
