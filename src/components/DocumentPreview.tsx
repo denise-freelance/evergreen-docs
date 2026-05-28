@@ -134,7 +134,7 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
           canvas.style.height = `${Math.floor(viewport.height)}px`;
 
           context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-          await page.render({ canvasContext: context, viewport }).promise;
+          await page.render({ canvas, canvasContext: context, viewport }).promise;
 
           pageWrapper.appendChild(canvas);
           container.appendChild(pageWrapper);
