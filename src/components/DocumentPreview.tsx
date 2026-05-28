@@ -1,11 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Download, ZoomIn, ZoomOut, RotateCw, FileText, FileSpreadsheet, FileImage, File, Loader2, Printer, ChevronDown } from "lucide-react";
+import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import type { DocFile } from "@/stores/useDocumentStore";
 import { useDocumentStore } from "@/stores/useDocumentStore";
+
+GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
 
 interface DocumentPreviewProps {
   open: boolean;
@@ -31,19 +34,129 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [pageCount, setPageCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [pdfRendering, setPdfRendering] = useState(false);
+  const [pdfError, setPdfError] = useState(false);
+  const pdfContainerRef = useRef<HTMLDivElement | null>(null);
   const { getSignedUrl } = useDocumentStore();
 
   useEffect(() => {
+    let objectUrl: string | null = null;
+
     if (!file?.storagePath || !open) {
       setSignedUrl(null);
+      setPreviewUrl(null);
       return;
     }
+
     setLoading(true);
+    setSignedUrl(null);
+    setPreviewUrl(null);
+    setPageCount(0);
+    setPdfError(false);
+
     getSignedUrl(file.storagePath)
-      .then((url) => setSignedUrl(url))
+      .then(async (url) => {
+        setSignedUrl(url);
+        if (!url) return;
+
+        if (file.type === "pdf" || file.type === "image") {
+          const response = await fetch(url);
+          if (!response.ok) throw new Error("preview_fetch_failed");
+          const sourceBlob = await response.blob();
+          const previewBlob = file.type === "pdf" && sourceBlob.type !== "application/pdf"
+            ? new Blob([sourceBlob], { type: "application/pdf" })
+            : sourceBlob;
+          objectUrl = URL.createObjectURL(previewBlob);
+          setPreviewUrl(objectUrl);
+          return;
+        }
+
+        setPreviewUrl(url);
+      })
+      .catch((error) => {
+        console.error("Preview load error", error);
+        setPreviewUrl(null);
+      })
       .finally(() => setLoading(false));
+
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   }, [file?.storagePath, open, getSignedUrl]);
+
+  useEffect(() => {
+    if (!open || file?.type !== "pdf" || !previewUrl || !pdfContainerRef.current) {
+      setPdfRendering(false);
+      return;
+    }
+
+    let cancelled = false;
+    const container = pdfContainerRef.current;
+
+    const renderPdf = async () => {
+      try {
+        setPdfRendering(true);
+        setPdfError(false);
+        container.innerHTML = "";
+
+        const loadingTask = getDocument(previewUrl);
+        const pdf = await loadingTask.promise;
+        if (cancelled) return;
+
+        setPageCount(pdf.numPages);
+
+        for (let pageIndex = 1; pageIndex <= pdf.numPages; pageIndex += 1) {
+          const page = await pdf.getPage(pageIndex);
+          if (cancelled) return;
+
+          const initialViewport = page.getViewport({ scale: 1, rotation });
+          const availableWidth = Math.max((container.clientWidth || 900) - 32, 320);
+          const fitScale = availableWidth / initialViewport.width;
+          const viewport = page.getViewport({
+            scale: Math.max(0.5, fitScale * (zoom / 100)),
+            rotation,
+          });
+
+          const pageWrapper = document.createElement("div");
+          pageWrapper.className = "overflow-hidden rounded-md border border-border bg-background shadow-sm";
+
+          const canvas = document.createElement("canvas");
+          const context = canvas.getContext("2d");
+          if (!context) continue;
+
+          const pixelRatio = window.devicePixelRatio || 1;
+          canvas.width = Math.floor(viewport.width * pixelRatio);
+          canvas.height = Math.floor(viewport.height * pixelRatio);
+          canvas.style.width = `${Math.floor(viewport.width)}px`;
+          canvas.style.height = `${Math.floor(viewport.height)}px`;
+
+          context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+          await page.render({ canvas, canvasContext: context, viewport }).promise;
+
+          pageWrapper.appendChild(canvas);
+          container.appendChild(pageWrapper);
+        }
+      } catch (error) {
+        console.error("PDF render error", error);
+        if (!cancelled) {
+          setPdfError(true);
+          container.innerHTML = "";
+        }
+      } finally {
+        if (!cancelled) setPdfRendering(false);
+      }
+    };
+
+    renderPdf();
+
+    return () => {
+      cancelled = true;
+      container.innerHTML = "";
+    };
+  }, [file?.type, open, previewUrl, rotation, zoom]);
 
   if (!file) return null;
 
@@ -54,10 +167,10 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
   const handleZoomIn = () => setZoom((z) => Math.min(z + 25, 200));
   const handleZoomOut = () => setZoom((z) => Math.max(z - 25, 50));
   const handleRotate = () => setRotation((r) => (r + 90) % 360);
-
   const handlePrint = () => {
-    if (!signedUrl) return;
-    const w = window.open(signedUrl, "_blank");
+    const printUrl = previewUrl || signedUrl;
+    if (!printUrl) return;
+    const w = window.open(printUrl, "_blank");
     if (w) {
       w.addEventListener("load", () => {
         try { w.focus(); w.print(); } catch (e) { console.error(e); }
@@ -127,52 +240,45 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
         <div className="flex-1 overflow-hidden bg-muted/50 flex items-stretch justify-center p-4">
           <div
             className="bg-background shadow-lg rounded-lg border border-border transition-transform duration-200 origin-top w-full max-w-5xl flex flex-col overflow-auto"
-            style={{
-              transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
-            }}
+            style={isPdf ? undefined : { transform: `scale(${zoom / 100}) rotate(${rotation}deg)` }}
           >
-            {loading && (
+            {(loading || pdfRendering) && (
               <div className="flex items-center justify-center h-96">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
             )}
-            {!loading && !signedUrl && (
+            {!loading && !pdfRendering && !signedUrl && (
               <div className="flex flex-col items-center justify-center h-96 text-center p-6">
                 <Icon className="h-16 w-16 text-muted-foreground/40 mb-3" />
                 <p className="text-sm text-muted-foreground">Aperçu indisponible</p>
               </div>
             )}
-            {!loading && signedUrl && isImage && (
-              <img src={signedUrl} alt={file.name} className="w-full h-auto rounded-lg" />
+            {!loading && !pdfRendering && previewUrl && isImage && (
+              <img src={previewUrl} alt={file.name} className="w-full h-auto rounded-lg" />
             )}
-            {!loading && signedUrl && isPdf && (
-              <object
-                data={`${signedUrl}#toolbar=1&navpanes=0&view=FitH`}
-                type="application/pdf"
-                className="w-full flex-1 min-h-[70vh] rounded-lg border-0"
-              >
-                <iframe
-                  src={`${signedUrl}#toolbar=1&view=FitH`}
-                  title={file.name}
-                  className="w-full flex-1 min-h-[70vh] rounded-lg border-0"
-                />
-                <div className="flex flex-col items-center justify-center h-96 text-center p-6">
-                  <FileText className="h-16 w-16 text-muted-foreground/60 mb-3" />
-                  <p className="text-sm">Votre navigateur ne peut pas afficher ce PDF en ligne.</p>
-                  <Button onClick={handleExport} size="sm" className="mt-4 gap-1.5">
-                    <Download className="h-3.5 w-3.5" /> Télécharger le PDF
-                  </Button>
-                </div>
-              </object>
+            {!loading && previewUrl && isPdf && (
+              <div className="flex-1 min-h-[70vh] overflow-auto bg-muted/30 p-4">
+                {pdfError ? (
+                  <div className="flex flex-col items-center justify-center h-96 text-center p-6">
+                    <FileText className="h-16 w-16 text-muted-foreground/60 mb-3" />
+                    <p className="text-sm">Impossible d'afficher ce PDF dans l'application.</p>
+                    <Button onClick={handleExport} size="sm" className="mt-4 gap-1.5">
+                      <Download className="h-3.5 w-3.5" /> Télécharger le PDF
+                    </Button>
+                  </div>
+                ) : (
+                  <div ref={pdfContainerRef} className="flex flex-col items-center gap-4" />
+                )}
+              </div>
             )}
-            {!loading && signedUrl && file.type === "doc" && (
+            {!loading && !pdfRendering && signedUrl && file.type === "doc" && (
               <iframe
                 src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(signedUrl)}`}
                 title={file.name}
                 className="w-full flex-1 min-h-[70vh] rounded-lg border-0"
               />
             )}
-            {!loading && signedUrl && !isImage && !isPdf && file.type !== "doc" && (
+            {!loading && !pdfRendering && signedUrl && !isImage && !isPdf && file.type !== "doc" && (
               <div className="flex flex-col items-center justify-center h-96 text-center p-6">
                 <Icon className="h-16 w-16 text-muted-foreground/60 mb-3" />
                 <p className="text-sm font-medium">{file.name}</p>
