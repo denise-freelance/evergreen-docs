@@ -38,6 +38,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDocumentStore } from "@/stores/useDocumentStore";
 import { useNotifications } from "@/hooks/useNotifications";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import SettingsDialog from "@/components/SettingsDialog";
 
 const baseNavItems = [
   { to: "/", icon: LayoutDashboard, label: "Tableau de bord" },
@@ -60,6 +61,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [headerSearch, setHeaderSearch] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, isAdmin, signOut, user } = useAuth();
@@ -153,7 +155,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem><Settings className="mr-2 h-4 w-4" /> Paramètres</DropdownMenuItem>
+              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setSettingsOpen(true); }}>
+                <Settings className="mr-2 h-4 w-4" /> Paramètres
+              </DropdownMenuItem>
               <DropdownMenuItem><HelpCircle className="mr-2 h-4 w-4" /> Aide</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive" onClick={signOut}>
@@ -272,6 +276,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
   );
 }

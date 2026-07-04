@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Scan as ScanIcon, Camera, Wifi, WifiOff, Upload, X, Save, RefreshCw, FileImage, CheckCircle2 } from "lucide-react";
+import { Scan as ScanIcon, Camera, Wifi, WifiOff, Upload, X, Save, FileImage } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,8 +37,6 @@ export default function ScanPage() {
   const [folder, setFolder] = useState<string>("");
   const [baseName, setBaseName] = useState("Scan");
   const [saving, setSaving] = useState(false);
-  const [scannerIp, setScannerIp] = useState("");
-  const [scannerStatus, setScannerStatus] = useState<"idle" | "searching" | "connected" | "error">("idle");
   const [online, setOnline] = useState(navigator.onLine);
 
   const folderOptions = useMemo(() => flattenFolders(folders), [folders]);
@@ -119,22 +117,6 @@ export default function ScanPage() {
 
   const removeScan = (id: string) => setScanned((s) => s.filter((x) => x.id !== id));
 
-  const connectScanner = async () => {
-    if (!scannerIp.trim()) {
-      toast({ title: "Adresse manquante", description: "Saisissez l'IP du scanner sur votre réseau Wi-Fi.", variant: "destructive" });
-      return;
-    }
-    setScannerStatus("searching");
-    // Best-effort reachability probe (browsers block cross-origin reads, but the request is fired).
-    try {
-      await fetch(`http://${scannerIp.trim()}/`, { mode: "no-cors", signal: AbortSignal.timeout(3000) });
-      setScannerStatus("connected");
-      toast({ title: "Scanner détecté", description: `Connexion Wi-Fi à ${scannerIp}. Utilisez les boutons ci-dessous pour capturer.` });
-    } catch {
-      setScannerStatus("error");
-      toast({ title: "Scanner introuvable", description: "Vérifiez que le scanner est allumé et sur le même réseau Wi-Fi.", variant: "destructive" });
-    }
-  };
 
   const saveAll = async () => {
     if (!user || scanned.length === 0 || !folder) return;
@@ -173,63 +155,39 @@ export default function ScanPage() {
         </Badge>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="p-5 lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold flex items-center gap-2"><Camera className="h-4 w-4" /> Source de numérisation</h2>
-            <div className="flex gap-2">
-              {!cameraOn ? (
-                <Button size="sm" onClick={startCamera}><Camera className="h-4 w-4" /> Activer la caméra</Button>
-              ) : (
-                <Button size="sm" variant="outline" onClick={stopCamera}><X className="h-4 w-4" /> Arrêter</Button>
-              )}
-              <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
-                <Upload className="h-4 w-4" /> Importer une image
-              </Button>
-              <input ref={fileInputRef} type="file" accept="image/*" multiple capture="environment" hidden onChange={handleFilePick} />
-            </div>
-          </div>
-
-          <div className="relative rounded-lg overflow-hidden bg-black/90 aspect-video flex items-center justify-center">
-            <video ref={videoRef} className={`w-full h-full object-contain ${cameraOn ? "" : "hidden"}`} playsInline muted />
-            {!cameraOn && (
-              <div className="text-center text-white/70 p-8">
-                <ScanIcon className="h-12 w-12 mx-auto mb-3 opacity-60" />
-                <p className="text-sm">Activez la caméra, importez une image ou connectez un scanner Wi-Fi pour commencer.</p>
-              </div>
+      <Card className="p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold flex items-center gap-2"><Camera className="h-4 w-4" /> Source de numérisation</h2>
+          <div className="flex gap-2">
+            {!cameraOn ? (
+              <Button size="sm" onClick={startCamera}><Camera className="h-4 w-4" /> Activer la caméra</Button>
+            ) : (
+              <Button size="sm" variant="outline" onClick={stopCamera}><X className="h-4 w-4" /> Arrêter</Button>
             )}
+            <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
+              <Upload className="h-4 w-4" /> Importer une image
+            </Button>
+            <input ref={fileInputRef} type="file" accept="image/*" multiple capture="environment" hidden onChange={handleFilePick} />
           </div>
+        </div>
 
-          {cameraOn && (
-            <div className="flex justify-center gap-2">
-              <Button onClick={capture}><ScanIcon className="h-4 w-4" /> Capturer une page</Button>
+        <div className="relative rounded-lg overflow-hidden bg-black/90 aspect-video flex items-center justify-center">
+          <video ref={videoRef} className={`w-full h-full object-contain ${cameraOn ? "" : "hidden"}`} playsInline muted />
+          {!cameraOn && (
+            <div className="text-center text-white/70 p-8">
+              <ScanIcon className="h-12 w-12 mx-auto mb-3 opacity-60" />
+              <p className="text-sm">Activez la caméra ou importez une image pour commencer. Configurez le scanner Wi-Fi dans <span className="font-semibold">Paramètres</span> (menu utilisateur).</p>
             </div>
           )}
-        </Card>
+        </div>
 
-        <Card className="p-5 space-y-4">
-          <h2 className="font-semibold flex items-center gap-2"><Wifi className="h-4 w-4" /> Scanner Wi-Fi</h2>
-          <p className="text-xs text-muted-foreground">
-            Assurez-vous que le scanner est allumé et connecté au même réseau Wi-Fi que cet appareil, puis saisissez son adresse IP locale.
-          </p>
-          <div className="space-y-2">
-            <Label htmlFor="scanner-ip">Adresse IP du scanner</Label>
-            <Input id="scanner-ip" placeholder="192.168.1.42" value={scannerIp} onChange={(e) => setScannerIp(e.target.value)} />
+        {cameraOn && (
+          <div className="flex justify-center gap-2">
+            <Button onClick={capture}><ScanIcon className="h-4 w-4" /> Capturer une page</Button>
           </div>
-          <Button className="w-full" variant="outline" onClick={connectScanner} disabled={scannerStatus === "searching"}>
-            {scannerStatus === "searching" ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Wifi className="h-4 w-4" />}
-            {scannerStatus === "connected" ? "Reconnecter" : "Connecter"}
-          </Button>
-          {scannerStatus === "connected" && (
-            <div className="flex items-center gap-2 text-xs text-success">
-              <CheckCircle2 className="h-4 w-4" /> Scanner joignable sur le réseau
-            </div>
-          )}
-          {scannerStatus === "error" && (
-            <div className="text-xs text-destructive">Impossible d'atteindre le scanner. Vérifiez le réseau.</div>
-          )}
-        </Card>
-      </div>
+        )}
+      </Card>
+
 
       <Card className="p-5 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
