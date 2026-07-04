@@ -12,6 +12,8 @@ import Connectors from "./pages/Connectors";
 import SearchPage from "./pages/Search";
 import Workflow from "./pages/Workflow";
 import Shared from "./pages/Shared";
+import Scan from "./pages/Scan";
+import Payment from "./pages/Payment";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
