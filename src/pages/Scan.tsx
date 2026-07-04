@@ -37,8 +37,6 @@ export default function ScanPage() {
   const [folder, setFolder] = useState<string>("");
   const [baseName, setBaseName] = useState("Scan");
   const [saving, setSaving] = useState(false);
-  const [scannerIp, setScannerIp] = useState("");
-  const [scannerStatus, setScannerStatus] = useState<"idle" | "searching" | "connected" | "error">("idle");
   const [online, setOnline] = useState(navigator.onLine);
 
   const folderOptions = useMemo(() => flattenFolders(folders), [folders]);
