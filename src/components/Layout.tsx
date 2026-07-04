@@ -38,6 +38,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDocumentStore } from "@/stores/useDocumentStore";
 import { useNotifications } from "@/hooks/useNotifications";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import SettingsDialog from "@/components/SettingsDialog";
 
 const baseNavItems = [
   { to: "/", icon: LayoutDashboard, label: "Tableau de bord" },
