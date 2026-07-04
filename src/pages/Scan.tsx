@@ -117,22 +117,6 @@ export default function ScanPage() {
 
   const removeScan = (id: string) => setScanned((s) => s.filter((x) => x.id !== id));
 
-  const connectScanner = async () => {
-    if (!scannerIp.trim()) {
-      toast({ title: "Adresse manquante", description: "Saisissez l'IP du scanner sur votre réseau Wi-Fi.", variant: "destructive" });
-      return;
-    }
-    setScannerStatus("searching");
-    // Best-effort reachability probe (browsers block cross-origin reads, but the request is fired).
-    try {
-      await fetch(`http://${scannerIp.trim()}/`, { mode: "no-cors", signal: AbortSignal.timeout(3000) });
-      setScannerStatus("connected");
-      toast({ title: "Scanner détecté", description: `Connexion Wi-Fi à ${scannerIp}. Utilisez les boutons ci-dessous pour capturer.` });
-    } catch {
-      setScannerStatus("error");
-      toast({ title: "Scanner introuvable", description: "Vérifiez que le scanner est allumé et sur le même réseau Wi-Fi.", variant: "destructive" });
-    }
-  };
 
   const saveAll = async () => {
     if (!user || scanned.length === 0 || !folder) return;
