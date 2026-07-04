@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Scan as ScanIcon, Camera, Wifi, WifiOff, Upload, X, Save, RefreshCw, FileImage, CheckCircle2 } from "lucide-react";
+import { Scan as ScanIcon, Camera, Wifi, WifiOff, Upload, X, Save, FileImage } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
