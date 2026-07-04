@@ -155,7 +155,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem><Settings className="mr-2 h-4 w-4" /> Paramètres</DropdownMenuItem>
+              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setSettingsOpen(true); }}>
+                <Settings className="mr-2 h-4 w-4" /> Paramètres
+              </DropdownMenuItem>
               <DropdownMenuItem><HelpCircle className="mr-2 h-4 w-4" /> Aide</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive" onClick={signOut}>
