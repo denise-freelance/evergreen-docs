@@ -12,6 +12,8 @@ import Connectors from "./pages/Connectors";
 import SearchPage from "./pages/Search";
 import Workflow from "./pages/Workflow";
 import Shared from "./pages/Shared";
+import Scan from "./pages/Scan";
+import Payment from "./pages/Payment";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -44,6 +46,8 @@ const AppRoutes = () => (
     <Route path="/connectors" element={<ProtectedRoute><Layout><Connectors /></Layout></ProtectedRoute>} />
     <Route path="/search" element={<ProtectedRoute><Layout><SearchPage /></Layout></ProtectedRoute>} />
     <Route path="/workflow" element={<ProtectedRoute><Layout><Workflow /></Layout></ProtectedRoute>} />
+    <Route path="/scan" element={<ProtectedRoute><Layout><Scan /></Layout></ProtectedRoute>} />
+    <Route path="/payment" element={<ProtectedRoute><Layout><Payment /></Layout></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
