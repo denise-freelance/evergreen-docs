@@ -45,6 +45,8 @@ const baseNavItems = [
   { to: "/shared", icon: Share2, label: "Partagés avec moi" },
   { to: "/search", icon: Search, label: "Recherche" },
   { to: "/workflow", icon: GitPullRequest, label: "Validation" },
+  { to: "/scan", icon: ScanIcon, label: "Numérisation" },
+  { to: "/payment", icon: CreditCard, label: "Paiement" },
   { to: "/connectors", icon: Link2, label: "Connecteurs" },
 ];
 
