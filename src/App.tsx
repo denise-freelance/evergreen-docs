@@ -15,6 +15,7 @@ import Shared from "./pages/Shared";
 import Scan from "./pages/Scan";
 import Payment from "./pages/Payment";
 import Auth from "./pages/Auth";
+import OAuthConsent from "./pages/OAuthConsent";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ function ProtectedRoute({ children, adminOnly = false }: { children: React.React
 const AppRoutes = () => (
   <Routes>
     <Route path="/auth" element={<AuthPage />} />
+    <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
     <Route path="/" element={<ProtectedRoute><Layout><Index /></Layout></ProtectedRoute>} />
     <Route path="/documents" element={<ProtectedRoute><Layout><Documents /></Layout></ProtectedRoute>} />
     <Route path="/shared" element={<ProtectedRoute><Layout><Shared /></Layout></ProtectedRoute>} />
