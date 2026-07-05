@@ -63,7 +63,12 @@ function AuthPage() {
       </div>
     );
   }
-  if (user && profile?.is_active) return <Navigate to="/" replace />;
+  if (user && profile?.is_active) {
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get("next");
+    const safe = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+    return <Navigate to={safe} replace />;
+  }
   return <Auth />;
 }
 
