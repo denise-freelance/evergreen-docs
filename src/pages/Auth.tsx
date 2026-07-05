@@ -33,8 +33,11 @@ export default function Auth() {
         return;
       }
 
-      // Force page reload to re-init AuthProvider with new token
-      window.location.href = "/";
+      // Force page reload to re-init AuthProvider with new token, honoring ?next=
+      const params = new URLSearchParams(window.location.search);
+      const next = params.get("next");
+      const safe = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+      window.location.href = safe;
     } catch (error: any) {
       toast({
         title: "Erreur de connexion",
