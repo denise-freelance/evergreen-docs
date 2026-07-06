@@ -58,6 +58,7 @@ interface DocumentStore {
   getPendingValidations: () => DocFile[];
   getRecentActivities: (limit?: number) => ActivityEntry[];
   createFolder: (parentPath: string | null, name: string, author: string, authorId: string) => Promise<string>;
+  saveEditedDocument: (original: DocFile, blob: Blob, author: string, authorId: string) => Promise<DocFile | null>;
   getSignedUrl: (storagePath: string) => Promise<string | null>;
 }
 
@@ -147,6 +148,15 @@ function mapActivity(row: any): ActivityEntry {
   };
 }
 
+function bumpVersion(current: string): string {
+  const m = /^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?/i.exec(current || "");
+  if (!m) return "v0.0.1";
+  const major = parseInt(m[1] || "0", 10);
+  const minor = parseInt(m[2] || "0", 10);
+  const patch = parseInt(m[3] || "0", 10);
+  return `v${major}.${minor}.${patch + 1}`;
+}
+
 async function logActivity(userId: string, userName: string, action: string, target: string) {
   const initials = getInitials(userName);
   await supabase.from("activities").insert({
@@ -156,7 +166,15 @@ async function logActivity(userId: string, userName: string, action: string, tar
     action,
     target,
   });
+  // Persist to audit log too (real-time visible in the Administration > Audit tab)
+  await supabase.from("audit_logs").insert({
+    user_id: userId,
+    user_name: userName,
+    action,
+    target,
+  });
 }
+
 
 export const useDocumentStore = create<DocumentStore>((set, get) => ({
   documents: [],
@@ -254,6 +272,34 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     await get().loadAll();
     return newPath;
   },
+
+  saveEditedDocument: async (original, blob, author, authorId) => {
+    const ext = original.name.split(".").pop() || "bin";
+    const storagePath = `${authorId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error: upErr } = await supabase.storage.from("documents").upload(storagePath, blob, {
+      contentType: blob.type || "application/octet-stream",
+    });
+    if (upErr) { console.error("Upload edit error", upErr); return null; }
+    const newVersion = bumpVersion(original.version);
+    const { data, error } = await supabase.from("documents").insert({
+      name: original.name,
+      type: original.type,
+      size_bytes: blob.size,
+      folder: original.folder,
+      status: "draft",
+      version: newVersion,
+      tags: original.tags,
+      author_id: authorId,
+      author_name: author,
+      storage_path: storagePath,
+    }).select().single();
+    if (error || !data) { console.error("Insert edit error", error); return null; }
+    await logActivity(authorId, author, "a modifié", `${original.name} (${newVersion})`);
+    await get().loadAll();
+    return mapDoc(data);
+  },
+
+
 
   searchDocuments: (query) => {
     const q = query.toLowerCase().trim();

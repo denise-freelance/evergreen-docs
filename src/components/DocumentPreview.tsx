@@ -3,10 +3,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Download, ZoomIn, ZoomOut, RotateCw, FileText, FileSpreadsheet, FileImage, File, Loader2, Printer, ChevronDown } from "lucide-react";
+import { Download, ZoomIn, ZoomOut, RotateCw, FileText, FileSpreadsheet, FileImage, File, Loader2, Printer, ChevronDown, Pencil, Save, X } from "lucide-react";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import type { DocFile } from "@/stores/useDocumentStore";
 import { useDocumentStore } from "@/stores/useDocumentStore";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { getSavedPrinter } from "@/components/SettingsDialog";
+import mammoth from "mammoth";
+import * as XLSX from "xlsx";
+import { Document as DocxDocument, Packer, Paragraph, TextRun } from "docx";
 
 GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
 
@@ -30,6 +36,11 @@ const statusLabels: Record<string, string> = {
   rejected: "Rejeté",
 };
 
+function extIs(name: string, list: string[]) {
+  const ext = name.split(".").pop()?.toLowerCase() || "";
+  return list.includes(ext);
+}
+
 export default function DocumentPreview({ open, onOpenChange, file }: DocumentPreviewProps) {
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
@@ -39,11 +50,25 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
   const [loading, setLoading] = useState(false);
   const [pdfRendering, setPdfRendering] = useState(false);
   const [pdfError, setPdfError] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [docHtml, setDocHtml] = useState<string>("");
+  const [sheet, setSheet] = useState<{ names: string[]; active: string; data: Record<string, string[][]> } | null>(null);
   const pdfContainerRef = useRef<HTMLDivElement | null>(null);
-  const { getSignedUrl } = useDocumentStore();
+  const docEditorRef = useRef<HTMLDivElement | null>(null);
+  const { getSignedUrl, saveEditedDocument } = useDocumentStore();
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const isDocx = !!file && extIs(file.name, ["docx"]);
+  const isXlsx = !!file && extIs(file.name, ["xlsx", "xls"]);
+  const editable = isDocx || isXlsx;
 
   useEffect(() => {
     let objectUrl: string | null = null;
+    setEditing(false);
+    setDocHtml("");
+    setSheet(null);
 
     if (!file?.storagePath || !open) {
       setSignedUrl(null);
@@ -74,6 +99,42 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
           return;
         }
 
+        // Word (.docx) — render editable HTML via mammoth
+        if (isDocx) {
+          try {
+            const buf = await (await fetch(url)).arrayBuffer();
+            const res = await mammoth.convertToHtml({ arrayBuffer: buf });
+            setDocHtml(res.value || "<p></p>");
+          } catch (e) {
+            console.error("docx read error", e);
+          }
+          return;
+        }
+
+        // Excel (.xlsx / .xls) — parse into editable grid
+        if (isXlsx) {
+          try {
+            const buf = await (await fetch(url)).arrayBuffer();
+            const wb = XLSX.read(buf, { type: "array" });
+            const data: Record<string, string[][]> = {};
+            wb.SheetNames.forEach((n) => {
+              const rows = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[n], { header: 1, defval: "" });
+              // Normalize row width
+              const maxCols = Math.max(1, ...rows.map((r) => r.length));
+              data[n] = rows.map((r) => {
+                const copy = [...r];
+                while (copy.length < maxCols) copy.push("");
+                return copy.map((c) => (c == null ? "" : String(c)));
+              });
+              if (data[n].length === 0) data[n] = [["", "", ""], ["", "", ""]];
+            });
+            setSheet({ names: wb.SheetNames, active: wb.SheetNames[0], data });
+          } catch (e) {
+            console.error("xlsx read error", e);
+          }
+          return;
+        }
+
         setPreviewUrl(url);
       })
       .catch((error) => {
@@ -85,7 +146,7 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
     return () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [file?.storagePath, open, getSignedUrl]);
+  }, [file?.storagePath, open, getSignedUrl, isDocx, isXlsx]);
 
   useEffect(() => {
     if (!open || file?.type !== "pdf" || !previewUrl || !pdfContainerRef.current) {
@@ -167,15 +228,68 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
   const handleZoomIn = () => setZoom((z) => Math.min(z + 25, 200));
   const handleZoomOut = () => setZoom((z) => Math.max(z - 25, 50));
   const handleRotate = () => setRotation((r) => (r + 90) % 360);
-  const handlePrint = () => {
-    const printUrl = previewUrl || signedUrl;
-    if (!printUrl) return;
-    const w = window.open(printUrl, "_blank");
+
+  const printBlob = (blob: Blob) => {
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, "_blank");
     if (w) {
       w.addEventListener("load", () => {
         try { w.focus(); w.print(); } catch (e) { console.error(e); }
       });
     }
+  };
+
+  const handlePrint = async () => {
+    const printer = getSavedPrinter();
+    if (!printer.ip) {
+      toast({
+        title: "Imprimante non configurée",
+        description: "Configurez l'imprimante Wi-Fi dans Paramètres (menu utilisateur).",
+        variant: "destructive",
+      });
+      return;
+    }
+    // Try to reach printer on local Wi-Fi network
+    try {
+      await fetch(`http://${printer.ip}/`, { mode: "no-cors", signal: AbortSignal.timeout(2500) });
+    } catch {
+      toast({
+        title: "Imprimante injoignable",
+        description: `Impossible d'atteindre ${printer.ip}. Vérifiez le réseau Wi-Fi.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    toast({
+      title: "Envoi à l'imprimante",
+      description: `${printer.name || "Imprimante"} (${printer.ip}) — utilisez la boîte système pour sélectionner cette imprimante Wi-Fi.`,
+    });
+
+    // For editable modes, print current edits directly
+    if (editing && isDocx && docEditorRef.current) {
+      const w = window.open("", "_blank");
+      if (w) {
+        w.document.write(`<html><head><title>${file.name}</title></head><body>${docEditorRef.current.innerHTML}</body></html>`);
+        w.document.close();
+        w.addEventListener("load", () => { try { w.focus(); w.print(); } catch (e) { console.error(e); } });
+      }
+      return;
+    }
+    if (editing && isXlsx && sheet) {
+      const w = window.open("", "_blank");
+      if (w) {
+        const rows = sheet.data[sheet.active] || [];
+        const html = `<table border="1" cellspacing="0" cellpadding="4">${rows.map(r => `<tr>${r.map(c => `<td>${c ?? ""}</td>`).join("")}</tr>`).join("")}</table>`;
+        w.document.write(`<html><head><title>${file.name}</title></head><body>${html}</body></html>`);
+        w.document.close();
+        w.addEventListener("load", () => { try { w.focus(); w.print(); } catch (e) { console.error(e); } });
+      }
+      return;
+    }
+    const url = previewUrl || signedUrl;
+    if (!url) return;
+    const w = window.open(url, "_blank");
+    if (w) w.addEventListener("load", () => { try { w.focus(); w.print(); } catch (e) { console.error(e); } });
   };
 
   const handleExport = () => {
@@ -186,6 +300,62 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
     document.body.appendChild(a);
     a.click();
     a.remove();
+  };
+
+  const handleSaveEdits = async () => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      let blob: Blob | null = null;
+      if (isDocx && docEditorRef.current) {
+        // Convert HTML content into paragraphs (simple text preservation).
+        const text = docEditorRef.current.innerText;
+        const paragraphs = text.split(/\n+/).map((line) => new Paragraph({ children: [new TextRun(line)] }));
+        const doc = new DocxDocument({ sections: [{ children: paragraphs.length ? paragraphs : [new Paragraph("")] }] });
+        const buf = await Packer.toBlob(doc);
+        blob = new Blob([await buf.arrayBuffer()], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+      } else if (isXlsx && sheet) {
+        const wb = XLSX.utils.book_new();
+        sheet.names.forEach((n) => {
+          const ws = XLSX.utils.aoa_to_sheet(sheet.data[n] || [[""]]);
+          XLSX.utils.book_append_sheet(wb, ws, n);
+        });
+        const array = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+        blob = new Blob([array], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      }
+      if (!blob) throw new Error("nothing to save");
+      const saved = await saveEditedDocument(file, blob, user.username, user.id);
+      if (saved) {
+        toast({ title: "Nouvelle version enregistrée", description: `${saved.name} · ${saved.version}` });
+        setEditing(false);
+        onOpenChange(false);
+      } else {
+        toast({ title: "Échec de l'enregistrement", variant: "destructive" });
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erreur", description: "Impossible d'enregistrer la nouvelle version.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateSheetCell = (r: number, c: number, v: string) => {
+    if (!sheet) return;
+    const rows = sheet.data[sheet.active].map((row) => [...row]);
+    rows[r][c] = v;
+    setSheet({ ...sheet, data: { ...sheet.data, [sheet.active]: rows } });
+  };
+  const addSheetRow = () => {
+    if (!sheet) return;
+    const rows = sheet.data[sheet.active];
+    const width = rows[0]?.length || 3;
+    setSheet({ ...sheet, data: { ...sheet.data, [sheet.active]: [...rows, Array(width).fill("")] } });
+  };
+  const addSheetCol = () => {
+    if (!sheet) return;
+    const rows = sheet.data[sheet.active].map((r) => [...r, ""]);
+    setSheet({ ...sheet, data: { ...sheet.data, [sheet.active]: rows } });
   };
 
   return (
@@ -205,18 +375,38 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleZoomOut} title="Zoom arrière">
-              <ZoomOut className="h-4 w-4" />
-            </Button>
-            <span className="text-xs text-muted-foreground w-10 text-center">{zoom}%</span>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleZoomIn} title="Zoom avant">
-              <ZoomIn className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRotate} title="Pivoter">
-              <RotateCw className="h-4 w-4" />
-            </Button>
-            <div className="w-px h-5 bg-border mx-1" />
-            {signedUrl && (
+            {!editing && (
+              <>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleZoomOut} title="Zoom arrière">
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+                <span className="text-xs text-muted-foreground w-10 text-center">{zoom}%</span>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleZoomIn} title="Zoom avant">
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRotate} title="Pivoter">
+                  <RotateCw className="h-4 w-4" />
+                </Button>
+                <div className="w-px h-5 bg-border mx-1" />
+              </>
+            )}
+            {editable && !editing && (
+              <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={() => setEditing(true)}>
+                <Pencil className="h-3.5 w-3.5" /> Modifier
+              </Button>
+            )}
+            {editing && (
+              <>
+                <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5" onClick={() => setEditing(false)} disabled={saving}>
+                  <X className="h-3.5 w-3.5" /> Annuler
+                </Button>
+                <Button size="sm" className="h-8 text-xs gap-1.5" onClick={handleSaveEdits} disabled={saving}>
+                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  Enregistrer la nouvelle version
+                </Button>
+              </>
+            )}
+            {signedUrl && !editing && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
@@ -224,12 +414,12 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
                     <ChevronDown className="h-3 w-3 opacity-60" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuItem onClick={handleExport} className="gap-2 text-xs">
                     <Download className="h-3.5 w-3.5" /> Exporter sur la machine
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handlePrint} className="gap-2 text-xs">
-                    <Printer className="h-3.5 w-3.5" /> Imprimer le document
+                    <Printer className="h-3.5 w-3.5" /> Imprimer via imprimante Wi-Fi
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -240,7 +430,7 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
         <div className="flex-1 overflow-hidden bg-muted/50 flex items-stretch justify-center p-4">
           <div
             className="bg-background shadow-lg rounded-lg border border-border transition-transform duration-200 origin-top w-full max-w-5xl flex flex-col overflow-auto"
-            style={isPdf ? undefined : { transform: `scale(${zoom / 100}) rotate(${rotation}deg)` }}
+            style={isPdf || editable ? undefined : { transform: `scale(${zoom / 100}) rotate(${rotation}deg)` }}
           >
             {(loading || pdfRendering) && (
               <div className="flex items-center justify-center h-96">
@@ -271,14 +461,68 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
                 )}
               </div>
             )}
-            {!loading && !pdfRendering && signedUrl && file.type === "doc" && (
+
+            {!loading && isDocx && (
+              <div className="p-6 overflow-auto min-h-[70vh]">
+                <div
+                  ref={docEditorRef}
+                  contentEditable={editing}
+                  suppressContentEditableWarning
+                  className={`prose prose-sm max-w-none focus:outline-none ${editing ? "ring-2 ring-accent/40 rounded p-3" : ""}`}
+                  dangerouslySetInnerHTML={{ __html: docHtml }}
+                />
+              </div>
+            )}
+
+            {!loading && isXlsx && sheet && (
+              <div className="p-4 overflow-auto min-h-[70vh]">
+                {sheet.names.length > 1 && (
+                  <div className="flex gap-1 mb-3 flex-wrap">
+                    {sheet.names.map((n) => (
+                      <Button key={n} variant={n === sheet.active ? "default" : "outline"} size="sm" className="h-7 text-xs" onClick={() => setSheet({ ...sheet, active: n })}>{n}</Button>
+                    ))}
+                  </div>
+                )}
+                <div className="overflow-auto border rounded">
+                  <table className="text-xs w-full border-collapse">
+                    <tbody>
+                      {(sheet.data[sheet.active] || []).map((row, r) => (
+                        <tr key={r}>
+                          {row.map((cell, c) => (
+                            <td key={c} className="border border-border p-0">
+                              {editing ? (
+                                <input
+                                  className="w-full min-w-24 px-2 py-1 bg-transparent focus:bg-accent/10 focus:outline-none"
+                                  value={cell}
+                                  onChange={(e) => updateSheetCell(r, c, e.target.value)}
+                                />
+                              ) : (
+                                <div className="px-2 py-1 min-w-24">{cell}</div>
+                              )}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {editing && (
+                  <div className="flex gap-2 mt-3">
+                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={addSheetRow}>+ Ligne</Button>
+                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={addSheetCol}>+ Colonne</Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!loading && !pdfRendering && signedUrl && file.type === "doc" && !isDocx && (
               <iframe
                 src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(signedUrl)}`}
                 title={file.name}
                 className="w-full flex-1 min-h-[70vh] rounded-lg border-0"
               />
             )}
-            {!loading && !pdfRendering && signedUrl && !isImage && !isPdf && file.type !== "doc" && (
+            {!loading && !pdfRendering && signedUrl && !isImage && !isPdf && !isDocx && !isXlsx && file.type !== "doc" && (
               <div className="flex flex-col items-center justify-center h-96 text-center p-6">
                 <Icon className="h-16 w-16 text-muted-foreground/60 mb-3" />
                 <p className="text-sm font-medium">{file.name}</p>
