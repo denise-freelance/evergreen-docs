@@ -148,6 +148,15 @@ function mapActivity(row: any): ActivityEntry {
   };
 }
 
+function bumpVersion(current: string): string {
+  const m = /^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?/i.exec(current || "");
+  if (!m) return "v0.0.1";
+  const major = parseInt(m[1] || "0", 10);
+  const minor = parseInt(m[2] || "0", 10);
+  const patch = parseInt(m[3] || "0", 10);
+  return `v${major}.${minor}.${patch + 1}`;
+}
+
 async function logActivity(userId: string, userName: string, action: string, target: string) {
   const initials = getInitials(userName);
   await supabase.from("activities").insert({
@@ -157,7 +166,15 @@ async function logActivity(userId: string, userName: string, action: string, tar
     action,
     target,
   });
+  // Persist to audit log too (real-time visible in the Administration > Audit tab)
+  await supabase.from("audit_logs").insert({
+    user_id: userId,
+    user_name: userName,
+    action,
+    target,
+  });
 }
+
 
 export const useDocumentStore = create<DocumentStore>((set, get) => ({
   documents: [],
