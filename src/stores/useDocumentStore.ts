@@ -297,6 +297,9 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     await logActivity(authorId, author, "a modifié", `${original.name} (${newVersion})`);
     await get().loadAll();
     return mapDoc(data);
+  },
+
+
 
   searchDocuments: (query) => {
     const q = query.toLowerCase().trim();
