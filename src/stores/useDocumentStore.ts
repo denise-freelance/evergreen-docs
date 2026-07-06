@@ -58,6 +58,7 @@ interface DocumentStore {
   getPendingValidations: () => DocFile[];
   getRecentActivities: (limit?: number) => ActivityEntry[];
   createFolder: (parentPath: string | null, name: string, author: string, authorId: string) => Promise<string>;
+  saveEditedDocument: (original: DocFile, blob: Blob, author: string, authorId: string) => Promise<DocFile | null>;
   getSignedUrl: (storagePath: string) => Promise<string | null>;
 }
 
