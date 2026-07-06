@@ -150,8 +150,7 @@ export default function AuditTab() {
       });
 
       autoTable(doc, {
-        // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-        startY: (doc as any).lastAutoTable.finalY + 20,
+        startY: ((doc as any).lastAutoTable?.finalY ?? 90) + 20,
         head: [["Date", "Utilisateur", "Action", "Cible", "IP"]],
         body: rows.map((r) => [
           new Date(r.created_at).toLocaleString("fr-FR"),
