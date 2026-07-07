@@ -324,7 +324,7 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
         blob = new Blob([array], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       }
       if (!blob) throw new Error("nothing to save");
-      const saved = await saveEditedDocument(file, blob, user.username, user.id);
+      const saved = await saveEditedDocument(file, blob, user.username, user.user_id);
       if (saved) {
         toast({ title: "Nouvelle version enregistrée", description: `${saved.name} · ${saved.version}` });
         setEditing(false);

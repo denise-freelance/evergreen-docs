@@ -127,7 +127,7 @@ export default function ScanPage() {
         const name = `${baseName || "Scan"}-${stamp}-${String(i + 1).padStart(2, "0")}.jpg`;
         return new File([s.blob], name, { type: "image/jpeg" });
       });
-      await addDocuments(files, folder, user.username, user.id);
+      await addDocuments(files, folder, user.username, user.user_id);
       toast({ title: "Documents enregistrés", description: `${files.length} document(s) ajouté(s) à ${folder}.` });
       setScanned([]);
       stopCamera();
