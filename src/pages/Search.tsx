@@ -201,14 +201,14 @@ export default function Search() {
     return filtered;
   }, [accessibleDocs, query, selectedTypes, dateFilter, selectedTags]);
 
-  // Owners derived from filtered results, excluding the current user
+  // Owners from DB (all profiles), excluding the current user
   const owners = useMemo(
-    () =>
-      Array.from(new Set(resultsBeforeOwner.map((d) => d.author)))
-        .filter((name) => name && name !== currentUserName)
-        .sort(),
-    [resultsBeforeOwner, currentUserName]
+    () => dbOwners.filter((name) => name && name !== currentUserName),
+    [dbOwners, currentUserName]
   );
+
+  const allTags = dbTags;
+
 
   const results = useMemo(() => {
     let filtered = resultsBeforeOwner;
