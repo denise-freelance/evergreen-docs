@@ -88,6 +88,8 @@ export default function Search() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState("pertinence");
   const [sharedDocIds, setSharedDocIds] = useState<Set<string>>(new Set());
+  const [dbOwners, setDbOwners] = useState<string[]>([]);
+  const [dbTags, setDbTags] = useState<string[]>([]);
 
   useEffect(() => {
     if (!loaded) loadAll();
@@ -105,6 +107,25 @@ export default function Search() {
       .then(({ data }) => setSharedDocIds(new Set((data || []).map((r) => r.document_id))));
   }, [authorId, isAdmin]);
 
+  // Fetch owners (from profiles) and tags (from documents) directly from the database
+  useEffect(() => {
+    supabase
+      .from("profiles")
+      .select("username")
+      .order("username")
+      .then(({ data }) => {
+        setDbOwners(Array.from(new Set((data || []).map((r: any) => r.username).filter(Boolean))));
+      });
+    supabase
+      .from("documents")
+      .select("tags")
+      .then(({ data }) => {
+        const all = new Set<string>();
+        (data || []).forEach((r: any) => (r.tags || []).forEach((t: string) => t && all.add(t)));
+        setDbTags(Array.from(all).sort());
+      });
+  }, []);
+
   // Apply same access control as Documents.tsx
   const accessibleDocs = useMemo(() => {
     if (isAdmin) return documents;
@@ -117,13 +138,8 @@ export default function Search() {
     });
   }, [documents, isAdmin, groupName, authorId, sharedDocIds]);
 
-  // Owners list: only those appearing in current filtered results, excluding the current user
   const currentUserName = user?.username || "";
 
-  const allTags = useMemo(
-    () => Array.from(new Set(accessibleDocs.flatMap((d) => d.tags))).sort(),
-    [accessibleDocs]
-  );
 
   const toggleType = (type: string) => {
     setSelectedTypes((prev) =>
