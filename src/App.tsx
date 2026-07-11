@@ -15,6 +15,7 @@ import Shared from "./pages/Shared";
 import Scan from "./pages/Scan";
 import Payment from "./pages/Payment";
 import Auth from "./pages/Auth";
+import Archives from "./pages/Archives";
 import OAuthConsent from "./pages/OAuthConsent";
 import NotFound from "./pages/NotFound";
 
@@ -45,6 +46,7 @@ const AppRoutes = () => (
     <Route path="/documents" element={<ProtectedRoute><Layout><Documents /></Layout></ProtectedRoute>} />
     <Route path="/shared" element={<ProtectedRoute><Layout><Shared /></Layout></ProtectedRoute>} />
     <Route path="/admin" element={<ProtectedRoute adminOnly><Layout><Admin /></Layout></ProtectedRoute>} />
+    <Route path="/archives" element={<ProtectedRoute adminOnly><Layout><Archives /></Layout></ProtectedRoute>} />
     <Route path="/connectors" element={<ProtectedRoute><Layout><Connectors /></Layout></ProtectedRoute>} />
     <Route path="/search" element={<ProtectedRoute><Layout><SearchPage /></Layout></ProtectedRoute>} />
     <Route path="/workflow" element={<ProtectedRoute><Layout><Workflow /></Layout></ProtectedRoute>} />
