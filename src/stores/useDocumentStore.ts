@@ -135,6 +135,9 @@ function mapDoc(row: any): DocFile {
     folder: row.folder,
     storagePath: row.storage_path,
     rejectReason: row.reject_reason,
+    isArchived: !!row.is_archived,
+    archivedAt: row.archived_at ? new Date(row.archived_at).getTime() : null,
+    archivedByName: row.archived_by_name ?? null,
   };
 }
 
