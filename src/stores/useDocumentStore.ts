@@ -307,6 +307,36 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     return mapDoc(data);
   },
 
+  archiveDocument: async (id, author, authorId) => {
+    const doc = get().documents.find((d) => d.id === id);
+    if (!doc) return;
+    const { error } = await supabase.from("documents").update({
+      is_archived: true,
+      archived_at: new Date().toISOString(),
+      archived_by: authorId,
+      archived_by_name: author,
+    }).eq("id", id);
+    if (error) { console.error("Archive error", error); throw error; }
+    await logActivity(authorId, author, "a archivé", doc.name);
+    await get().loadAll();
+  },
+
+  unarchiveDocument: async (id, author, authorId) => {
+    const doc = get().documents.find((d) => d.id === id);
+    if (!doc) return;
+    const { error } = await supabase.from("documents").update({
+      is_archived: false,
+      archived_at: null,
+      archived_by: null,
+      archived_by_name: null,
+    }).eq("id", id);
+    if (error) { console.error("Unarchive error", error); throw error; }
+    await logActivity(authorId, author, "a désarchivé", doc.name);
+    await get().loadAll();
+  },
+
+
+
 
 
   searchDocuments: (query) => {
