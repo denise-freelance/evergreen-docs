@@ -18,6 +18,9 @@ export interface DocFile {
   folder: string;
   storagePath?: string | null;
   rejectReason?: string | null;
+  isArchived: boolean;
+  archivedAt?: number | null;
+  archivedByName?: string | null;
 }
 
 export interface ActivityEntry {
@@ -59,6 +62,8 @@ interface DocumentStore {
   getRecentActivities: (limit?: number) => ActivityEntry[];
   createFolder: (parentPath: string | null, name: string, author: string, authorId: string) => Promise<string>;
   saveEditedDocument: (original: DocFile, blob: Blob, author: string, authorId: string) => Promise<DocFile | null>;
+  archiveDocument: (id: string, author: string, authorId: string) => Promise<void>;
+  unarchiveDocument: (id: string, author: string, authorId: string) => Promise<void>;
   getSignedUrl: (storagePath: string) => Promise<string | null>;
 }
 
@@ -132,6 +137,9 @@ function mapDoc(row: any): DocFile {
     folder: row.folder,
     storagePath: row.storage_path,
     rejectReason: row.reject_reason,
+    isArchived: !!row.is_archived,
+    archivedAt: row.archived_at ? new Date(row.archived_at).getTime() : null,
+    archivedByName: row.archived_by_name ?? null,
   };
 }
 
@@ -298,6 +306,36 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     await get().loadAll();
     return mapDoc(data);
   },
+
+  archiveDocument: async (id, author, authorId) => {
+    const doc = get().documents.find((d) => d.id === id);
+    if (!doc) return;
+    const { error } = await supabase.from("documents").update({
+      is_archived: true,
+      archived_at: new Date().toISOString(),
+      archived_by: authorId,
+      archived_by_name: author,
+    }).eq("id", id);
+    if (error) { console.error("Archive error", error); throw error; }
+    await logActivity(authorId, author, "a archivé", doc.name);
+    await get().loadAll();
+  },
+
+  unarchiveDocument: async (id, author, authorId) => {
+    const doc = get().documents.find((d) => d.id === id);
+    if (!doc) return;
+    const { error } = await supabase.from("documents").update({
+      is_archived: false,
+      archived_at: null,
+      archived_by: null,
+      archived_by_name: null,
+    }).eq("id", id);
+    if (error) { console.error("Unarchive error", error); throw error; }
+    await logActivity(authorId, author, "a désarchivé", doc.name);
+    await get().loadAll();
+  },
+
+
 
 
 

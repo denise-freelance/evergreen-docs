@@ -142,11 +142,15 @@ export type Database = {
       }
       documents: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
+          archived_by_name: string | null
           author_id: string
           author_name: string
           created_at: string
           folder: string
           id: string
+          is_archived: boolean
           name: string
           reject_reason: string | null
           size_bytes: number
@@ -158,11 +162,15 @@ export type Database = {
           version: string
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
+          archived_by_name?: string | null
           author_id: string
           author_name: string
           created_at?: string
           folder?: string
           id?: string
+          is_archived?: boolean
           name: string
           reject_reason?: string | null
           size_bytes?: number
@@ -174,11 +182,15 @@ export type Database = {
           version?: string
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
+          archived_by_name?: string | null
           author_id?: string
           author_name?: string
           created_at?: string
           folder?: string
           id?: string
+          is_archived?: boolean
           name?: string
           reject_reason?: string | null
           size_bytes?: number

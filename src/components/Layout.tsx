@@ -22,6 +22,7 @@ import {
   Eye,
   Scan as ScanIcon,
   CreditCard,
+  Archive,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -51,7 +52,10 @@ const baseNavItems = [
   { to: "/connectors", icon: Link2, label: "Connecteurs" },
 ];
 
-const adminNavItem = { to: "/admin", icon: Shield, label: "Administration" };
+const adminNavItems = [
+  { to: "/admin", icon: Shield, label: "Administration" },
+  { to: "/archives", icon: Archive, label: "Archivage" },
+];
 
 const fileIconMap: Record<string, any> = { pdf: FileText, xlsx: FileSpreadsheet, image: FileImage, doc: FileIcon };
 const statusColors: Record<string, string> = { pending: "bg-warning/10 text-warning border-warning/20", approved: "bg-success/10 text-success border-success/20", draft: "bg-muted text-muted-foreground border-border", rejected: "bg-destructive/10 text-destructive border-destructive/20" };
@@ -75,7 +79,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     }
   }, [user, loaded, loadAll]);
 
-  const navItems = isAdmin ? [...baseNavItems, adminNavItem] : baseNavItems;
+  const navItems = isAdmin ? [...baseNavItems, ...adminNavItems] : baseNavItems;
 
   const initials = profile?.username
     ? profile.username.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
