@@ -390,10 +390,15 @@ export default function DocumentPreview({ open, onOpenChange, file }: DocumentPr
                 <div className="w-px h-5 bg-border mx-1" />
               </>
             )}
-            {editable && !editing && (
+            {editable && !editing && !file?.isArchived && (
               <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={() => setEditing(true)}>
                 <Pencil className="h-3.5 w-3.5" /> Modifier
               </Button>
+            )}
+            {file?.isArchived && (
+              <Badge variant="outline" className="h-8 text-[11px] gap-1.5 px-2 border-warning/30 bg-warning/10 text-warning">
+                Archivé — lecture seule
+              </Badge>
             )}
             {editing && (
               <>
