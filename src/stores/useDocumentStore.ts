@@ -18,6 +18,9 @@ export interface DocFile {
   folder: string;
   storagePath?: string | null;
   rejectReason?: string | null;
+  isArchived: boolean;
+  archivedAt?: number | null;
+  archivedByName?: string | null;
 }
 
 export interface ActivityEntry {
