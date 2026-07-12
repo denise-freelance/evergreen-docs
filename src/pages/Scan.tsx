@@ -74,8 +74,9 @@ export default function ScanPage() {
         await videoRef.current.play();
       }
       setCameraOn(true);
-    } catch (e: any) {
-      toast({ title: "Caméra indisponible", description: e?.message ?? "Autorisez l'accès à la caméra.", variant: "destructive" });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Autorisez l'accès à la caméra.";
+      toast({ title: "Caméra indisponible", description: message, variant: "destructive" });
     }
   };
 
@@ -131,8 +132,9 @@ export default function ScanPage() {
       toast({ title: "Documents enregistrés", description: `${files.length} document(s) ajouté(s) à ${folder}.` });
       setScanned([]);
       stopCamera();
-    } catch (e: any) {
-      toast({ title: "Erreur", description: e?.message ?? "Impossible d'enregistrer.", variant: "destructive" });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Impossible d'enregistrer.";
+      toast({ title: "Erreur", description: message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
